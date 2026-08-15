@@ -1,0 +1,54 @@
+{
+  "name": "mg-ats-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MG-ATS desktop shell",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack:win": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.mgats.desktop",
+    "productName": "MG-ATS",
+    "copyright": "MG-ATS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist",
+        "to": "backend"
+      },
+      {
+        "from": "../backend/node_modules",
+        "to": "backend/node_modules"
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "ui"
+      }
+    ],
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MG-ATS",
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "MG-ATS"
+    }
+  }
+}
