@@ -26,7 +26,11 @@
     "extraResources": [
       {
         "from": "../backend/dist",
-        "to": "backend"
+        "to": "backend/dist"
+      },
+      {
+        "from": "../backend/prisma",
+        "to": "backend/prisma"
       },
       {
         "from": "../backend/node_modules",

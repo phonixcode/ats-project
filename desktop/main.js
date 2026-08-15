@@ -24,9 +24,9 @@ function dataDir() {
 }
 
 function backendEntry() {
-  const packaged = path.join(process.resourcesPath, 'backend', 'main.js');
-  if (fs.existsSync(packaged)) return { cmd: process.execPath, args: [packaged], cwd: path.dirname(packaged) };
-  const local = path.join(__dirname, '..', 'backend', 'dist', 'main.js');
+  const packaged = path.join(process.resourcesPath, 'backend', 'dist', 'src', 'main.js');
+  if (fs.existsSync(packaged)) return { cmd: process.execPath, args: [packaged], cwd: path.dirname(path.dirname(packaged)) };
+  const local = path.join(__dirname, '..', 'backend', 'dist', 'src', 'main.js');
   return { cmd: process.execPath, args: [local], cwd: path.join(__dirname, '..', 'backend') };
 }
 

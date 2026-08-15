@@ -5,9 +5,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { existsSync } from 'fs';
 import { AppModule } from './app.module';
 import { ensureDataDir } from './common/paths';
+import { runMigrations } from './common/migrate';
 
 async function bootstrap() {
   ensureDataDir();
+  runMigrations();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useGlobalPipes(
     new ValidationPipe({
