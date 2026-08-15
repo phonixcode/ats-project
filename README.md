@@ -116,6 +116,23 @@ cd ../desktop && npm install && npm run pack:win
 
 The installer is in `desktop/release/`. It adds Start Menu and desktop shortcuts. Remove it from Windows Settings → Apps. You will be asked whether to keep your roles and shortlists.
 
+The installer includes Chromium (Electron). That sets a floor around ~80–120MB after compression. Dev tools and unused packages are left out of the pack.
+
+### Windows SmartScreen
+
+Windows will warn on an unsigned installer. There is no code-only way to make SmartScreen trust it. You need an **Authenticode code signing certificate** from a public CA (DigiCert, Sectigo, or SSL.com). An EV certificate clears SmartScreen faster than a standard OV certificate.
+
+Add these GitHub Actions secrets, then re-run **Windows installer**:
+
+| Secret | Value |
+|---|---|
+| `WINDOWS_CSC_LINK` | Base64 of your `.pfx` file, or a `https://` URL to it |
+| `WINDOWS_CSC_KEY_PASSWORD` | Password for that `.pfx` |
+
+Encode the cert on a trusted machine: `base64 -i certificate.pfx | pbcopy` (macOS) or `[Convert]::ToBase64String([IO.File]::ReadAllBytes('certificate.pfx'))` (Windows).
+
+Until Microsoft has seen enough signed downloads, some PCs may still show SmartScreen once. Choose **More info** → **Run anyway**. After reputation builds, that prompt goes away.
+
 Comfortable machines: 16GB RAM. 8GB works with the small local model and one resume at a time.
 
 ## Tests

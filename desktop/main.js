@@ -50,6 +50,19 @@ function backendCwd(mainFile) {
   return path.join(__dirname, '..', 'backend');
 }
 
+function crashDetail(output, code, logPath) {
+  const text = output.trim();
+  if (!text) {
+    return `MG-ATS could not start (exit ${code}). See ${logPath}`;
+  }
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((line) =>
+    /ERR_DLOPEN_FAILED|NODE_MODULE_VERSION|compiled against|Error:/.test(line),
+  );
+  const slice = (start >= 0 ? lines.slice(start, start + 8) : lines.slice(-8)).join('\n');
+  return `MG-ATS could not start.\n\n${slice}`;
+}
+
 function nodeCommand() {
   if (!app.isPackaged) {
     return process.env.npm_node_execpath || process.env.NODE_BINARY || 'node';
@@ -117,14 +130,7 @@ function startApi() {
     });
     apiProcess.on('exit', (code) => {
       if (ready) return;
-      const detail = output.trim().split('\n').slice(-6).join('\n');
-      finish(
-        new Error(
-          detail
-            ? `MG-ATS could not start.\n\n${detail}`
-            : `MG-ATS could not start (exit ${code}). See ${logPath}`,
-        ),
-      );
+      finish(new Error(crashDetail(output, code, logPath)));
     });
     setTimeout(() => {
       if (!ready) {

@@ -6,9 +6,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack:win": "electron-builder --win nsis --publish never"
+    "pack:win": "node scripts/stage-backend.cjs && electron-builder --win nsis --publish never"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "electron": "^37.2.6",
     "electron-builder": "^26.0.12"
   },
@@ -19,22 +20,45 @@
     "directories": {
       "output": "release"
     },
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US"
+    ],
     "files": [
       "main.js",
       "preload.js"
     ],
     "extraResources": [
       {
-        "from": "../backend/dist",
-        "to": "backend/dist"
+        "from": ".pack/backend/dist",
+        "to": "backend/dist",
+        "filter": [
+          "**/*",
+          "!**/*.map",
+          "!**/*.d.ts"
+        ]
       },
       {
-        "from": "../backend/prisma",
-        "to": "backend/prisma"
+        "from": ".pack/backend/prisma",
+        "to": "backend/prisma",
+        "filter": [
+          "**/*",
+          "!**/*.db",
+          "!**/*.db-journal"
+        ]
       },
       {
-        "from": "../backend/node_modules",
-        "to": "backend/node_modules"
+        "from": ".pack/backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!**/{README,readme,CHANGELOG,changelog}*",
+          "!**/*.md",
+          "!**/*.map",
+          "!**/{test,tests,__tests__,docs,doc,example,examples,coverage}/**",
+          "!**/.bin/**",
+          "!**/better-sqlite3/{deps,src,build/Release/obj}/**"
+        ]
       },
       {
         "from": "../frontend/dist",
@@ -42,7 +66,12 @@
       }
     ],
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ],
+      "signtoolOptions": {
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      }
     },
     "nsis": {
       "oneClick": false,
