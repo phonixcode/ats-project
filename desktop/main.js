@@ -19,6 +19,10 @@ if (!gotLock) {
   });
 }
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.mgats.desktop');
+}
+
 function dataDir() {
   return app.getPath('userData');
 }
@@ -153,6 +157,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'MG-ATS',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
