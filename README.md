@@ -97,7 +97,16 @@ The window talks to a local API on `127.0.0.1`. The OS picks a free port so it w
 
 ## Windows installer
 
-Build the `.exe` **on a Windows PC**. Native modules will be wrong if you pack from a Mac.
+GitHub Actions builds the `.exe` on a Windows runner. After this workflow is on `main`:
+
+1. GitHub → **Actions** → **Windows installer** → **Run workflow**
+2. Open that run and download **MG-ATS-windows**
+
+Pushing a `v*` tag (for example `v0.1.0`) also builds and attaches the `.exe` to a GitHub Release.
+
+Do not pack from a Mac. Native modules will be wrong.
+
+To pack on a Windows PC:
 
 ```bash
 cd backend && npm install && npx prisma generate && npm run build
@@ -129,6 +138,7 @@ desktop/    Electron shell and Windows NSIS config
 |---|---|
 | API will not start | Check the terminal for `MG_ATS_READY`. If it errors, stop it and run `npm run start:dev` again from `backend/`. |
 | UI cannot load roles | Confirm the API is on `127.0.0.1:3000` and the UI is the Vite dev server (port 5173). |
+| Desktop window says it could not start | The window must start the API with **Node**, not Electron. Rebuild the API (`cd backend && npm run build`) then `cd desktop && npm start` again. |
 | Empty roles list after the SQLite switch | Expected. Post a job and upload resumes again. |
 | Scoring stuck | Stay on the candidate page — it updates when the score is ready. Or tap **Score leftover** if resumes are still waiting. |
 | “Couldn’t read this file” | The zip entry was not a readable PDF/Word resume. Skip it or fix the file and upload again. |

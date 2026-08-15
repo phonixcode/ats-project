@@ -20,55 +20,124 @@ if (!gotLock) {
 }
 
 function dataDir() {
-  return path.join(app.getPath('userData'));
+  return app.getPath('userData');
 }
 
-function backendEntry() {
-  const packaged = path.join(process.resourcesPath, 'backend', 'dist', 'src', 'main.js');
-  if (fs.existsSync(packaged)) return { cmd: process.execPath, args: [packaged], cwd: path.dirname(path.dirname(packaged)) };
-  const local = path.join(__dirname, '..', 'backend', 'dist', 'src', 'main.js');
-  return { cmd: process.execPath, args: [local], cwd: path.join(__dirname, '..', 'backend') };
+function logFile() {
+  const dir = path.join(dataDir(), 'logs');
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'api.log');
 }
 
-function staticDir() {
-  const packaged = path.join(process.resourcesPath, 'ui');
-  if (fs.existsSync(packaged)) return packaged;
-  return path.join(__dirname, '..', 'frontend', 'dist');
+function resolveBackendMain() {
+  const candidates = [
+    path.join(process.resourcesPath, 'backend', 'src', 'main.js'),
+    path.join(process.resourcesPath, 'backend', 'dist', 'src', 'main.js'),
+    path.join(__dirname, '..', 'backend', 'dist', 'src', 'main.js'),
+    path.join(__dirname, '..', 'backend', 'dist', 'main.js'),
+  ];
+  return candidates.find((file) => fs.existsSync(file)) || null;
+}
+
+function backendCwd(mainFile) {
+  let dir = path.dirname(mainFile);
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'node_modules', '@nestjs', 'core'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return path.join(__dirname, '..', 'backend');
+}
+
+function nodeCommand() {
+  if (!app.isPackaged) {
+    return process.env.npm_node_execpath || process.env.NODE_BINARY || 'node';
+  }
+  return process.execPath;
 }
 
 function startApi() {
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
-  const { cmd, args, cwd } = backendEntry();
+  const backendMain = resolveBackendMain();
+  if (!backendMain) {
+    return Promise.reject(
+      new Error('API build not found. From the project folder run: cd backend && npm run build'),
+    );
+  }
+
   const env = {
     ...process.env,
-    ELECTRON_RUN_AS_NODE: '1',
     HOST: '127.0.0.1',
     PORT: '0',
     MG_ATS_DATA_DIR: dir,
     MG_ATS_STATIC: staticDir(),
     DATABASE_URL: `file:${path.join(dir, 'mg-ats.db')}`,
   };
+  if (app.isPackaged) {
+    env.ELECTRON_RUN_AS_NODE = '1';
+  }
+
+  const logPath = logFile();
+  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+
   return new Promise((resolve, reject) => {
-    apiProcess = spawn(cmd, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let settled = false;
+    let ready = false;
+    let output = '';
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else resolve(value);
+    };
+
+    apiProcess = spawn(nodeCommand(), [backendMain], {
+      cwd: backendCwd(backendMain),
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
     const onData = (chunk) => {
       const text = chunk.toString();
+      output += text;
+      logStream.write(text);
       const match = text.match(/MG_ATS_READY (http:\/\/127\.0\.0\.1:\d+)/);
       if (match) {
+        ready = true;
         apiBase = match[1];
-        resolve(apiBase);
+        finish(null, apiBase);
       }
     };
     apiProcess.stdout.on('data', onData);
     apiProcess.stderr.on('data', onData);
-    apiProcess.on('error', reject);
-    apiProcess.on('exit', (code) => {
-      if (!apiBase || code) {
-        reject(new Error('MG-ATS could not start. Try opening it again.'));
-      }
+    apiProcess.on('error', (error) => {
+      finish(new Error(`MG-ATS could not start the API. ${error.message}`));
     });
-    setTimeout(() => reject(new Error('MG-ATS took too long to start. Try again.')), 20000);
+    apiProcess.on('exit', (code) => {
+      if (ready) return;
+      const detail = output.trim().split('\n').slice(-6).join('\n');
+      finish(
+        new Error(
+          detail
+            ? `MG-ATS could not start.\n\n${detail}`
+            : `MG-ATS could not start (exit ${code}). See ${logPath}`,
+        ),
+      );
+    });
+    setTimeout(() => {
+      if (!ready) {
+        finish(new Error('MG-ATS took too long to start. Try again.'));
+      }
+    }, 20000);
   });
+}
+
+function staticDir() {
+  const packaged = path.join(process.resourcesPath, 'ui');
+  if (fs.existsSync(packaged)) return packaged;
+  return path.join(__dirname, '..', 'frontend', 'dist');
 }
 
 function createWindow() {
