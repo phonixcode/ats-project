@@ -73,10 +73,13 @@ export default function JobsPage() {
 
   return (
     <Layout>
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 20 }}>
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
         <h2 className="page-title">Roles</h2>
         <Link className="btn btn-primary" to="/jobs/new">Post a job</Link>
       </div>
+      <p className="muted" style={{ marginTop: 0, marginBottom: 20 }}>
+        Post a role, upload a zip, then work the pile. MG-ATS reads each resume so you can shortlist faster.
+      </p>
 
       <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
         <label className="muted" style={{ fontSize: 13 }}>
@@ -108,7 +111,7 @@ export default function JobsPage() {
         <p className="muted">Loading roles…</p>
       ) : jobs.length === 0 ? (
         <div className="empty">
-          No roles yet. Post a job to start reading resumes.
+          No roles yet. Post a job, then upload resumes — MG-ATS handles the first read.
           <div style={{ marginTop: 14 }}>
             <Link className="btn btn-primary" to="/jobs/new">Post a job</Link>
           </div>

@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Injectable } from '@nestjs/common';
+import { SettingsService } from '../settings/settings.service';
 import type {
   AuthenticitySignalResult,
   ExtractedResumeData,
@@ -20,20 +21,23 @@ import { clampFitResult, parseJsonObject } from './parse-json';
 export class GeminiProviderService implements LLMProvider {
   readonly name = 'gemini' as const;
   readonly model = 'gemini-2.0-flash';
-  private client: GoogleGenerativeAI | null;
+  private client: GoogleGenerativeAI | null = null;
+  private cachedKey: string | null = null;
 
-  constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    this.client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-  }
+  constructor(private readonly settings: SettingsService) {}
 
   isConfigured(): boolean {
-    return Boolean(process.env.GEMINI_API_KEY);
+    return Boolean(this.settings.cloudKey('gemini'));
   }
 
   private getModel() {
-    if (!this.client) {
+    const apiKey = this.settings.cloudKey('gemini');
+    if (!apiKey) {
       throw new Error('Gemini isn’t set up');
+    }
+    if (!this.client || this.cachedKey !== apiKey) {
+      this.client = new GoogleGenerativeAI(apiKey);
+      this.cachedKey = apiKey;
     }
     return this.client.getGenerativeModel({
       model: this.model,

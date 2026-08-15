@@ -288,6 +288,71 @@ button {
   display: inline-block;
 }
 
+.help-link {
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.decision-action {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  max-width: 168px;
+}
+
+.decision-action .hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.reader-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.reader-card:hover {
+  border-color: var(--ink-soft);
+}
+
+.reader-card.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.reader-card-pick {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-top: 2px;
+  min-width: 3.2rem;
+}
+
+.key-card .field { margin-top: 8px; }
+
 @media (max-width: 900px) {
   .jobs-table { display: block; }
   .jobs-table thead { display: none; }

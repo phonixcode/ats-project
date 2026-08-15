@@ -40,10 +40,11 @@ export default function Layout({ children }) {
   );
   const onUpload = location.pathname.includes('/upload');
   const onEdit = location.pathname.includes('/edit');
+  const onSettings = location.pathname === '/settings';
 
   const processRemaining = async (scopeJobId) => {
     const across = scopeJobId ? 'this role' : 'your open roles';
-    if (!window.confirm(`Score the resumes that are still waiting for ${across}?`)) return;
+    if (!window.confirm(`Finish the leftover reads for ${across}?`)) return;
     setProcessing(true);
     setProcessMessage(null);
     try {
@@ -52,12 +53,12 @@ export default function Layout({ children }) {
       });
       setProcessMessage(
         res.data.queued
-          ? `Started scoring ${res.data.queued} remaining resume${res.data.queued === 1 ? '' : 's'}. This can take a few minutes.`
-          : 'Nothing left to score.',
+          ? `Started ${res.data.queued} leftover read${res.data.queued === 1 ? '' : 's'}. This can take a few minutes.`
+          : 'Nothing left to read.',
       );
       loadJobs();
     } catch (err) {
-      setProcessMessage(userError(err, 'We couldn’t start scoring. Try again.'));
+      setProcessMessage(userError(err, 'We couldn’t start those leftover reads. Try again.'));
     } finally {
       setProcessing(false);
     }
@@ -83,12 +84,17 @@ export default function Layout({ children }) {
           Every resume gets a real look.
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          {!onSettings && (
+            <Link className="btn-quiet" to="/settings">
+              Settings
+            </Link>
+          )}
           {leftoverAnywhere && onJobsHome && (
             <button className="btn" disabled={processing} onClick={() => processRemaining()}>
-              {processing ? 'Starting…' : 'Score leftover resumes'}
+              {processing ? 'Starting…' : 'Finish leftover reads'}
             </button>
           )}
-          {!onJobsHome && (
+          {!onJobsHome && !onSettings && (
             <Link className="btn" to="/jobs/new">
               Post a job
             </Link>
@@ -148,7 +154,7 @@ export default function Layout({ children }) {
               )}
               {leftoverHere && (
                 <button className="btn-quiet" onClick={() => processRemaining(jobId)} disabled={processing}>
-                  {processing ? 'Starting…' : 'Score leftover'}
+                  {processing ? 'Starting…' : 'Finish leftover'}
                 </button>
               )}
             </>

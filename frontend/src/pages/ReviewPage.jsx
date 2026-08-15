@@ -121,7 +121,7 @@ export default function ReviewPage() {
         <p className="muted">Loading candidates…</p>
       ) : applications.length === 0 ? (
         <div className="empty">
-          No applications yet for this role.
+          No applications yet. Upload a zip of resumes and MG-ATS will do the first read.
           <div style={{ marginTop: 14 }}>
             <Link className="btn btn-primary" to={`/jobs/${jobId}/upload`}>Upload resumes</Link>
           </div>
@@ -140,7 +140,7 @@ export default function ReviewPage() {
             {counts.scoring > 0 && (
               <span className="queue-stat is-plain">
                 <span className="mono">{counts.scoring}</span>
-                still scoring
+                still reading
               </span>
             )}
             {counts.unread > 0 && (
@@ -238,7 +238,7 @@ export default function ReviewPage() {
                       <span className="muted" style={{ fontSize: 13 }}>
                         {application.failureReason
                           ? 'Couldn’t read this file'
-                          : BUCKET_LABELS[bucket] || (application.score ? '' : 'Still scoring')}
+                          : BUCKET_LABELS[bucket] || (application.score ? '' : 'Still reading')}
                       </span>
                       <span>
                         {decision ? (

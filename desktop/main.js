@@ -165,7 +165,7 @@ function startApi() {
         ? `\n\n${output.trim().split(/\r?\n/).slice(-8).join('\n')}`
         : '';
       finish(new Error(`MG-ATS took too long to start. ${hint}${extra}`));
-    }, 90000);
+    }, 300000);
   });
 }
 

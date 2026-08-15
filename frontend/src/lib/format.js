@@ -40,6 +40,18 @@ export const BUCKET_LABELS = {
   HARD_FILTERED: 'Missing a hard requirement',
 };
 
+export const AUTHENTICITY_LABELS = {
+  NATURAL: 'Sounds like a real person',
+  TEMPLATED: 'Reads a bit templated',
+  UNCERTAIN: 'Hard to tell from the writing',
+};
+
+export function resumeFileName(path) {
+  if (!path) return '';
+  const parts = String(path).split(/[/\\]/);
+  return parts[parts.length - 1] || '';
+}
+
 function looksTechnical(message) {
   return /uuid|prisma|exception|stack|econn|timeout|llm|openai|gemini|claude|internal server/i.test(
     message,

@@ -4,11 +4,8 @@ import { GeminiProviderService } from './gemini-provider.service';
 import { HeuristicProviderService } from './heuristic-provider.service';
 import { LocalLlmProviderService } from './local-llm-provider.service';
 import { OpenAiProviderService } from './openai-provider.service';
-import {
-  FALLBACK_ORDER,
-  type LLMProvider,
-  type ProviderName,
-} from './llm-provider.interface';
+import { SettingsService } from '../settings/settings.service';
+import type { LLMProvider, ProviderName } from './llm-provider.interface';
 import { withRetry } from './with-retry';
 
 @Injectable()
@@ -21,6 +18,7 @@ export class ProviderRegistryService {
     gemini: GeminiProviderService,
     local: LocalLlmProviderService,
     heuristic: HeuristicProviderService,
+    private readonly settings: SettingsService,
   ) {
     this.providers = [openai, gemini, claude, local, heuristic];
   }
@@ -30,9 +28,15 @@ export class ProviderRegistryService {
   }
 
   fallbackChain(): LLMProvider[] {
-    return FALLBACK_ORDER.map((name) => this.get(name)).filter(
-      (provider): provider is LLMProvider => Boolean(provider?.isConfigured()),
-    );
+    const chosen = this.settings.preferredReader();
+    const chain: LLMProvider[] = [];
+    if (chosen !== 'builtin') {
+      const selected = this.get(chosen);
+      if (selected?.isConfigured()) chain.push(selected);
+    }
+    const builtin = this.get('heuristic');
+    if (builtin) chain.push(builtin);
+    return chain;
   }
 
   async runWithFallback<T>(

@@ -13,7 +13,7 @@ It runs on your machine. No cloud account is required. Postgres and Redis are no
 
 Optional:
 
-- [Ollama](https://ollama.com) if you want a local model to score resumes (otherwise the built-in fallback still scores)
+- Cloud keys (OpenAI, Claude, or Gemini) in **Settings**. You only need one. Without a key, MG-ATS still scores with a basic built-in read.
 
 ## Run it on your laptop
 
@@ -44,11 +44,12 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ### First use
 
-1. Post a job — title, description, and who you need in one box.
-2. Upload a `.zip` of resumes (PDF or Word).
-3. Open **Review**. Work the “To review” list, 20 at a time.
-4. Open a candidate, tap **Shortlist** when they should go forward.
-5. **Export shortlist** downloads a CSV you can open in Excel.
+1. Open **Settings** and paste an OpenAI, Claude, or Gemini key (one is enough). Skip this for a basic built-in read.
+2. Post a job — title, description, and who you need in one box.
+3. Upload a `.zip` of resumes (PDF or Word).
+4. Open **Review**. Work the “To review” list, 20 at a time.
+5. Open a candidate, tap **Shortlist** when they should go forward.
+6. **Export shortlist** downloads a CSV you can open in Excel.
 
 Scoring can take a few seconds per resume. You can keep reviewing the ones that are ready.
 
@@ -70,7 +71,7 @@ ollama pull llama3.2
 
 If Ollama is off or the model fails, MG-ATS falls back to the built-in scorer so the pile still moves.
 
-Cloud keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `CLAUDE_API_KEY`) are optional. Leave them blank for a fully offline setup.
+On the Windows app, add cloud keys in **Settings**. They stay in `%APPDATA%\MG-ATS\settings.json`. We do not ship a local-model installer — an 8GB PC is a poor fit for that.
 
 ## Where your data lives
 
@@ -156,7 +157,7 @@ desktop/    Electron shell and Windows NSIS config
 | API will not start | Check the terminal for `MG_ATS_READY`. If it errors, stop it and run `npm run start:dev` again from `backend/`. |
 | UI cannot load roles | Confirm the API is on `127.0.0.1:3000` and the UI is the Vite dev server (port 5173). |
 | Desktop window says it could not start | Rebuild the API (`cd backend && npm run build`) then `cd desktop && npm start` again. |
-| Desktop says it took too long to start | Close other programs (browser, Cursor, etc.), then open MG-ATS again. 8GB PCs need the spare memory. |
+| Desktop says it took too long to start | Close other programs (browser, Cursor, etc.), then open MG-ATS again. 8GB PCs need the spare memory. First launch can take a few minutes. |
 | Empty roles list after the SQLite switch | Expected. Post a job and upload resumes again. |
 | Scoring stuck | Stay on the candidate page — it updates when the score is ready. Or tap **Score leftover** if resumes are still waiting. |
 | “Couldn’t read this file” | The zip entry was not a readable PDF/Word resume. Skip it or fix the file and upload again. |

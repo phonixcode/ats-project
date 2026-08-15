@@ -3,9 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import Layout from '../components/Layout';
 import {
+  AUTHENTICITY_LABELS,
   BUCKET_LABELS,
   DECISION_LABELS,
   formatPostedDate,
+  resumeFileName,
   userError,
 } from '../lib/format';
 
@@ -17,8 +19,8 @@ const CATEGORY_LABELS = {
 };
 
 const REVIEW_MESSAGES = {
-  SHORTLIST: 'Shortlisted. Export this list from the review board when you’re ready.',
-  MAYBE: 'Saved as maybe later. You can change this anytime.',
+  SHORTLIST: 'Shortlisted. They’re on your forward list — export it from Review when you’re ready.',
+  MAYBE: 'Saved as maybe later. They’re still in the pile if you want another look.',
   REJECT: 'Marked as not this time. You can change this anytime.',
 };
 
@@ -90,7 +92,7 @@ export default function CandidateDetailPage() {
           pollRef.current = null;
         } else if (Date.now() - started > 90000) {
           setActionError(
-            'Scoring is taking longer than expected. Stay on this page, or try again in a moment.',
+            'This read is taking longer than usual. Stay on this page, or try again in a moment.',
           );
           clearInterval(pollRef.current);
           pollRef.current = null;
@@ -135,7 +137,7 @@ export default function CandidateDetailPage() {
       await api.post(`/applications/${applicationId}/interview-questions`);
       await load();
     } catch (err) {
-      setActionError(userError(err, "We couldn't write interview questions. Try again."));
+      setActionError(userError(err, "We couldn't write those questions. Try again."));
     } finally {
       setGeneratingQuestions(false);
     }
@@ -148,7 +150,7 @@ export default function CandidateDetailPage() {
       await api.post(`/applications/${applicationId}/rescore`);
       await load();
     } catch (err) {
-      setActionError(userError(err, "We couldn't start scoring. Try again."));
+      setActionError(userError(err, "We couldn't start the read. Try again."));
       setScoring(false);
     }
   };
@@ -184,13 +186,13 @@ export default function CandidateDetailPage() {
     !score &&
     !app.failureReason &&
     (app.status === 'PENDING_REVIEW' || app.status === 'SCORE_FAILED');
-  const resumeName = app.rawFilePath?.split('/').pop();
+  const resumeName = resumeFileName(app.rawFilePath);
 
   return (
     <Layout>
       <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Link to={`/jobs/${app.jobId}`} className="muted" style={{ fontSize: 14, textDecoration: 'none' }}>
-          ← Back to {app.job?.title || 'review board'}
+          ← Back to {app.job?.title || 'Review'}
         </Link>
         <div className="row">
           {app.previousId && <Link className="btn" to={`/applications/${app.previousId}`}>Previous</Link>}
@@ -229,26 +231,26 @@ export default function CandidateDetailPage() {
         <div className="success-banner" style={{ margin: '16px 0' }}>
           {reviewMessage}{' '}
           {latestReview?.humanDecision === 'SHORTLIST' && (
-            <Link to={`/jobs/${app.jobId}`}>Go to the review board</Link>
+            <Link to={`/jobs/${app.jobId}`}>Open Review to export the shortlist</Link>
           )}
         </div>
       )}
 
       {app.failureReason && (
         <div className="error-banner" style={{ margin: '16px 0' }}>
-          We couldn’t read this resume. Check the file and try again, or make your call without a score.
+          We couldn’t read this resume. Check the file and try another copy, or make your call without a score.
         </div>
       )}
 
       {scoringFailed && (
         <div className="error-banner" style={{ margin: '16px 0' }}>
-          We couldn’t score this resume. Try scoring again, or make your call without it.
+          We couldn’t finish the first read. Tap Read again, or make your call without it.
         </div>
       )}
 
       {scoringInProgress && (
         <div className="success-banner" style={{ margin: '16px 0' }}>
-          Scoring this candidate… This usually takes a few seconds. You can keep reading while we work.
+          MG-ATS is reading this resume against the posting. Stay here — this can take a little while.
         </div>
       )}
 
@@ -258,7 +260,7 @@ export default function CandidateDetailPage() {
           {latestReview.note && <span className="muted"> — “{latestReview.note}”</span>}
           {latestReview.humanDecision === 'SHORTLIST' && (
             <p className="status-note">
-              Export this list from the <Link to={`/jobs/${app.jobId}`}>review board</Link>.
+              Export this list from <Link to={`/jobs/${app.jobId}`}>Review</Link> when you’re ready to share it.
             </p>
           )}
         </div>
@@ -270,7 +272,7 @@ export default function CandidateDetailPage() {
           onClick={scoreAgain}
           disabled={scoringInProgress || !app.parsedJson}
         >
-          {scoringInProgress ? 'Scoring this candidate…' : score ? 'Score again' : 'Score this candidate'}
+          {scoringInProgress ? 'Reading this resume…' : score ? 'Read again' : 'Read this resume'}
         </button>
         <button className="btn" onClick={() => setShowPosting((value) => !value)}>
           {showPosting ? 'Hide posting' : 'This posting'}
@@ -283,7 +285,7 @@ export default function CandidateDetailPage() {
         {resumeName && <span className="chip">{resumeName}</span>}
       </div>
       {!app.parsedJson && (
-        <p className="status-note">We still need to read the resume before we can score it.</p>
+        <p className="status-note">MG-ATS still needs to open the file before it can read it against the posting.</p>
       )}
 
       {showPosting && app.job && (
@@ -338,42 +340,51 @@ export default function CandidateDetailPage() {
       {score?.authenticityReasoning && (
         <div className="card" style={{ marginBottom: 28, fontSize: 13 }}>
           <strong>How this reads: </strong>
-          <span style={{ textTransform: 'lowercase' }}>{score.authenticitySignal}</span>
+          {AUTHENTICITY_LABELS[score.authenticitySignal] || score.authenticitySignal}
           <span className="muted"> — {score.authenticityReasoning}</span>
         </div>
       )}
 
       <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 17 }}>Your decision</h3>
+        <h3 style={{ fontSize: 17 }}>Your call</h3>
         <p className="muted" style={{ fontSize: 13, marginTop: -8 }}>
-          You can make this call even if scoring didn’t finish.
+          MG-ATS did the first read. You decide who moves — even if that read didn’t finish.
         </p>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Any notes for yourself (optional)"
+          placeholder="A note for yourself — why this call, what to ask (optional)"
           rows={2}
           style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', marginBottom: 10, resize: 'vertical' }}
         />
-        <div className="row">
-          <button className="btn" style={{ background: 'var(--strong-fit)', color: 'white', borderColor: 'var(--strong-fit)' }} onClick={() => submitReview('SHORTLIST')} disabled={submittingReview}>
-            {submittingReview ? 'Saving…' : 'Shortlist'}
-          </button>
-          <button className="btn" onClick={() => submitReview('MAYBE')} disabled={submittingReview}>
-            Maybe later
-          </button>
-          <button className="btn btn-danger" onClick={() => submitReview('REJECT')} disabled={submittingReview}>
-            Not this time
-          </button>
+        <div className="decision-actions">
+          <div className="decision-action">
+            <button className="btn" style={{ background: 'var(--strong-fit)', color: 'white', borderColor: 'var(--strong-fit)' }} onClick={() => submitReview('SHORTLIST')} disabled={submittingReview}>
+              {submittingReview ? 'Saving…' : 'Shortlist'}
+            </button>
+            <span className="hint">They go forward. You’ll export this list from Review.</span>
+          </div>
+          <div className="decision-action">
+            <button className="btn" onClick={() => submitReview('MAYBE')} disabled={submittingReview}>
+              Maybe later
+            </button>
+            <span className="hint">Keep them in the pile. You can come back.</span>
+          </div>
+          <div className="decision-action">
+            <button className="btn btn-danger" onClick={() => submitReview('REJECT')} disabled={submittingReview}>
+              Not this time
+            </button>
+            <span className="hint">Skip for this role. You can change it.</span>
+          </div>
         </div>
       </div>
 
       {score && (
         <div>
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 17, margin: 0 }}>Interview questions</h3>
+            <h3 style={{ fontSize: 17, margin: 0 }}>Questions to ask</h3>
             <button className="btn btn-ink" onClick={generateQuestions} disabled={generatingQuestions}>
-              {generatingQuestions ? 'Writing questions…' : app.interviewQuestions?.length ? 'Write new questions' : 'Write interview questions'}
+              {generatingQuestions ? 'Writing questions…' : app.interviewQuestions?.length ? 'Write new questions' : 'Write questions to ask'}
             </button>
           </div>
           {app.interviewQuestions?.length > 0 && (
@@ -385,7 +396,7 @@ export default function CandidateDetailPage() {
                   </p>
                   <p style={{ margin: 0, fontSize: 15 }}>{question.questionText}</p>
                   <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
-                    grounded in: {question.groundedIn}
+                    From the resume: {question.groundedIn}
                   </p>
                 </div>
               ))}

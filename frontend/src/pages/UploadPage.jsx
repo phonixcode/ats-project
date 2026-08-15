@@ -74,10 +74,10 @@ export default function UploadPage() {
       : 0;
 
   const statusCopy = {
-    PROCESSING: 'Reading resumes and scoring each one — this can take a moment.',
-    COMPLETED: 'All done. Every resume made it through.',
-    COMPLETED_WITH_ERRORS: 'Done — a few files couldn’t be read, but everything else is ready.',
-    FAILED: 'None of the files could be processed. Check the archive and try again.',
+    PROCESSING: 'MG-ATS is reading each resume against the posting. This can take a few minutes.',
+    COMPLETED: 'First read is done. Open Review and make your calls.',
+    COMPLETED_WITH_ERRORS: 'First read is done — a few files couldn’t be opened. Everything else is ready for you.',
+    FAILED: 'None of the files could be opened. Check the zip and try again.',
   };
 
   return (
@@ -88,7 +88,7 @@ export default function UploadPage() {
       </h2>
       <p className="muted" style={{ marginTop: 6 }}>
         {job ? `Posted ${formatPostedDate(job.postedAt)}. ` : ''}
-        Choose a .zip of PDF or Word resumes.
+        Choose a .zip of PDF or Word resumes. MG-ATS reads each file against this posting, then you make the call.
       </p>
 
       {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
@@ -109,14 +109,14 @@ export default function UploadPage() {
           {file ? (
             <p><strong>{file.name}</strong> selected</p>
           ) : (
-            <p>Click to choose a .zip file of resumes</p>
+            <p>Click to choose a .zip of resumes</p>
           )}
         </div>
       )}
 
       {file && !batch && (
         <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleUpload} disabled={uploading}>
-          {uploading ? 'Uploading…' : 'Start processing'}
+          {uploading ? 'Uploading…' : 'Read these resumes'}
         </button>
       )}
 
@@ -132,12 +132,12 @@ export default function UploadPage() {
             />
           </div>
           <p className="mono muted" style={{ fontSize: 13, margin: 0 }}>
-            {batch.processedCount} of {batch.totalFiles || '…'} processed
+            {batch.processedCount} of {batch.totalFiles || '…'} read
             {batch.failedCount > 0 && ` · ${batch.failedCount} couldn't be read`}
           </p>
           <p>{statusCopy[batch.status] || 'Working on it…'}</p>
           {batch.status !== 'PROCESSING' && (
-            <Link className="btn btn-ink" to={`/jobs/${jobId}`}>Review candidates →</Link>
+            <Link className="btn btn-ink" to={`/jobs/${jobId}`}>Start reviewing →</Link>
           )}
         </div>
       )}

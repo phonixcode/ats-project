@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Injectable } from '@nestjs/common';
+import { SettingsService } from '../settings/settings.service';
 import type {
   AuthenticitySignalResult,
   ExtractedResumeData,
@@ -20,20 +21,23 @@ import { clampFitResult, parseJsonObject } from './parse-json';
 export class OpenAiProviderService implements LLMProvider {
   readonly name = 'openai' as const;
   readonly model = 'gpt-4o-mini';
-  private client: OpenAI | null;
+  private client: OpenAI | null = null;
+  private cachedKey: string | null = null;
 
-  constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    this.client = apiKey ? new OpenAI({ apiKey }) : null;
-  }
+  constructor(private readonly settings: SettingsService) {}
 
   isConfigured(): boolean {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return Boolean(this.settings.cloudKey('openai'));
   }
 
   private getClient(): OpenAI {
-    if (!this.client) {
+    const apiKey = this.settings.cloudKey('openai');
+    if (!apiKey) {
       throw new Error('OpenAI isn’t set up');
+    }
+    if (!this.client || this.cachedKey !== apiKey) {
+      this.client = new OpenAI({ apiKey });
+      this.cachedKey = apiKey;
     }
     return this.client;
   }

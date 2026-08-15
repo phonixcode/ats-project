@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Injectable } from '@nestjs/common';
+import { SettingsService } from '../settings/settings.service';
 import type {
   AuthenticitySignalResult,
   ExtractedResumeData,
@@ -20,20 +21,23 @@ import { clampFitResult, parseJsonObject } from './parse-json';
 export class ClaudeProviderService implements LLMProvider {
   readonly name = 'claude' as const;
   readonly model = 'claude-3-5-haiku-20241022';
-  private client: Anthropic | null;
+  private client: Anthropic | null = null;
+  private cachedKey: string | null = null;
 
-  constructor() {
-    const apiKey = process.env.CLAUDE_API_KEY;
-    this.client = apiKey ? new Anthropic({ apiKey }) : null;
-  }
+  constructor(private readonly settings: SettingsService) {}
 
   isConfigured(): boolean {
-    return Boolean(process.env.CLAUDE_API_KEY);
+    return Boolean(this.settings.cloudKey('claude'));
   }
 
   private getClient(): Anthropic {
-    if (!this.client) {
+    const apiKey = this.settings.cloudKey('claude');
+    if (!apiKey) {
       throw new Error('Claude isn’t set up');
+    }
+    if (!this.client || this.cachedKey !== apiKey) {
+      this.client = new Anthropic({ apiKey });
+      this.cachedKey = apiKey;
     }
     return this.client;
   }

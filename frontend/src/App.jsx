@@ -4,12 +4,14 @@ import JobPostingPage from './pages/JobPostingPage';
 import UploadPage from './pages/UploadPage';
 import ReviewPage from './pages/ReviewPage';
 import CandidateDetailPage from './pages/CandidateDetailPage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<JobsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/jobs/new" element={<JobPostingPage />} />
         <Route path="/jobs/:jobId/edit" element={<JobPostingPage />} />
         <Route path="/jobs/:jobId" element={<ReviewPage />} />

@@ -70,11 +70,3 @@ export interface LLMProvider {
     authenticitySignal: 'NATURAL' | 'TEMPLATED' | 'UNCERTAIN',
   ): Promise<InterviewQuestionResult[]>;
 }
-
-export const FALLBACK_ORDER: ProviderName[] = [
-  'openai',
-  'claude',
-  'gemini',
-  'local',
-  'heuristic',
-];

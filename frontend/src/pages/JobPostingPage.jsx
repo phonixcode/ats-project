@@ -49,7 +49,7 @@ export default function JobPostingPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) {
-      setError('Add a job title and a posting. Tell us about the role and who you need.');
+      setError('Add a job title and the posting. Spell out the role and who you need — that’s what MG-ATS reads against.');
       return;
     }
     setSubmitting(true);
@@ -90,10 +90,10 @@ export default function JobPostingPage() {
     return (
       <Layout>
         <h2 className="page-title">Posted</h2>
-        <p>Upload resumes for this role, or go back to all roles.</p>
+        <p>The role is up. Next: drop in a zip of resumes so MG-ATS can do the first read, then you decide who moves.</p>
         <div className="row">
           <Link className="btn btn-primary" to={`/jobs/${posted.id}/upload`}>Upload resumes</Link>
-          <Link className="btn" to={`/jobs/${posted.id}`}>Review board</Link>
+          <Link className="btn" to={`/jobs/${posted.id}`}>Review</Link>
           <Link className="btn" to="/">All roles</Link>
         </div>
       </Layout>
@@ -107,7 +107,7 @@ export default function JobPostingPage() {
         {isEdit ? 'Edit posting' : 'Post a job'}
       </h2>
       <p className="muted" style={{ marginTop: 0, marginBottom: 24 }}>
-        Write this the way you would on Indeed or LinkedIn. Judges score candidates against this posting.
+        Write this the way you’d publish it. MG-ATS uses this posting to read each resume — the clearer you are about the role and who you need, the better the notes on each person.
       </p>
 
       {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
