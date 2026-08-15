@@ -307,8 +307,8 @@ export default function CandidateDetailPage() {
             <div className="card">
               <h3 style={{ fontSize: 15, marginTop: 0, color: 'var(--strong-fit)' }}>What stands out</h3>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }}>
-                {(score.fitRationaleJson?.strengths || []).map((item) => (
-                  <li key={item}>{item}</li>
+                {(score.fitRationaleJson?.strengths || []).map((item, idx) => (
+                  <li key={idx}>{item}</li>
                 ))}
               </ul>
             </div>
@@ -320,8 +320,8 @@ export default function CandidateDetailPage() {
                 </p>
               ) : (
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }}>
-                  {score.fitRationaleJson.gaps.map((item) => (
-                    <li key={item}>{item}</li>
+                  {score.fitRationaleJson.gaps.map((item, idx) => (
+                    <li key={idx}>{item}</li>
                   ))}
                 </ul>
               )}

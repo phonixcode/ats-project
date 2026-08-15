@@ -72,9 +72,9 @@ export interface LLMProvider {
 }
 
 export const FALLBACK_ORDER: ProviderName[] = [
+  'openai',
+  'claude',
+  'gemini',
   'local',
   'heuristic',
-  'openai',
-  'gemini',
-  'claude',
 ];
