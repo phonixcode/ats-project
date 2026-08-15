@@ -1,20 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ApplicationStatus } from '@prisma/client';
 import { ProviderRegistryService } from '../llm/provider-registry.service';
 import { ApplicationsService } from '../applications/applications.service';
 import { CandidatesService } from '../candidates/candidates.service';
 import { BatchesService } from '../batches/batches.service';
 import { DesktopQueueService } from './desktop-queue.service';
-
-export interface ExtractJobData {
-  applicationId: string;
-  candidateId: string;
-  resumeText: string;
-  batchId?: string;
-}
+import type { ExtractJobData } from './job-data';
 
 @Injectable()
-export class ExtractionProcessor {
+export class ExtractionProcessor implements OnModuleInit {
   private readonly logger = new Logger(ExtractionProcessor.name);
 
   constructor(
@@ -24,6 +18,10 @@ export class ExtractionProcessor {
     private batchesService: BatchesService,
     private jobs: DesktopQueueService,
   ) {}
+
+  onModuleInit() {
+    this.jobs.registerExtract((data) => this.process(data));
+  }
 
   async process(data: ExtractJobData) {
     const { applicationId, candidateId, resumeText, batchId } = data;

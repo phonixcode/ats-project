@@ -1,18 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ResumeParserService } from '../applications/resume-parser.service';
 import { ApplicationsService } from '../applications/applications.service';
 import { BatchesService } from '../batches/batches.service';
 import { DesktopQueueService } from './desktop-queue.service';
-
-export interface ParseResumeJobData {
-  applicationId: string;
-  candidateId: string;
-  filePath: string;
-  batchId?: string;
-}
+import type { ParseResumeJobData } from './job-data';
 
 @Injectable()
-export class ParseProcessor {
+export class ParseProcessor implements OnModuleInit {
   private readonly logger = new Logger(ParseProcessor.name);
 
   constructor(
@@ -21,6 +15,10 @@ export class ParseProcessor {
     private batchesService: BatchesService,
     private jobs: DesktopQueueService,
   ) {}
+
+  onModuleInit() {
+    this.jobs.registerParse((data) => this.process(data));
+  }
 
   async process(data: ParseResumeJobData) {
     const { applicationId, candidateId, filePath, batchId } = data;

@@ -1,18 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ArchiveExtractionService } from '../batches/archive-extraction.service';
 import { BatchesService } from '../batches/batches.service';
 import { CandidatesService } from '../candidates/candidates.service';
 import { ApplicationsService } from '../applications/applications.service';
 import { batchDir } from '../common/storage';
 import { DesktopQueueService } from './desktop-queue.service';
-
-export interface ExtractArchiveJobData {
-  batchId: string;
-  zipPath: string;
-}
+import type { ExtractArchiveJobData } from './job-data';
 
 @Injectable()
-export class BatchProcessor {
+export class BatchProcessor implements OnModuleInit {
   private readonly logger = new Logger(BatchProcessor.name);
 
   constructor(
@@ -22,6 +18,10 @@ export class BatchProcessor {
     private applicationsService: ApplicationsService,
     private jobs: DesktopQueueService,
   ) {}
+
+  onModuleInit() {
+    this.jobs.registerArchive((data) => this.process(data));
+  }
 
   async process(data: ExtractArchiveJobData) {
     const { batchId, zipPath } = data;
