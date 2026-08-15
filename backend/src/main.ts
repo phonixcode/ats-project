@@ -1,11 +1,22 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, writeSync } from 'fs';
+import { join } from 'path';
 import { AppModule } from './app.module';
-import { ensureDataDir } from './common/paths';
+import { dataDir, ensureDataDir } from './common/paths';
 import { runMigrations } from './common/migrate';
+
+function announceReady(url: string): void {
+  writeFileSync(join(dataDir(), 'api.ready'), url, 'utf8');
+  const line = `MG_ATS_READY ${url}\n`;
+  try {
+    writeSync(1, line);
+  } catch {
+    process.stdout.write(line);
+  }
+}
 
 async function bootstrap() {
   ensureDataDir();
@@ -36,7 +47,7 @@ async function bootstrap() {
     typeof address === 'object' && address
       ? address.port
       : port;
-  Logger.log(`MG_ATS_READY http://${host}:${bound}`);
+  announceReady(`http://${host}:${bound}`);
 }
 
 bootstrap();

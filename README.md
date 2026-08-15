@@ -155,7 +155,8 @@ desktop/    Electron shell and Windows NSIS config
 |---|---|
 | API will not start | Check the terminal for `MG_ATS_READY`. If it errors, stop it and run `npm run start:dev` again from `backend/`. |
 | UI cannot load roles | Confirm the API is on `127.0.0.1:3000` and the UI is the Vite dev server (port 5173). |
-| Desktop window says it could not start | The window must start the API with **Node**, not Electron. Rebuild the API (`cd backend && npm run build`) then `cd desktop && npm start` again. |
+| Desktop window says it could not start | Rebuild the API (`cd backend && npm run build`) then `cd desktop && npm start` again. |
+| Desktop says it took too long to start | Close other programs (browser, Cursor, etc.), then open MG-ATS again. 8GB PCs need the spare memory. |
 | Empty roles list after the SQLite switch | Expected. Post a job and upload resumes again. |
 | Scoring stuck | Stay on the candidate page — it updates when the score is ready. Or tap **Score leftover** if resumes are still waiting. |
 | “Couldn’t read this file” | The zip entry was not a readable PDF/Word resume. Skip it or fix the file and upload again. |
