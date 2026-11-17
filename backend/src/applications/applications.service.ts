@@ -2,8 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { rm, rmdir } from 'fs/promises';
 import { dirname } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApplicationStatus, Bucket, HumanDecision } from '@prisma/client';
+import { ApplicationStatus, HumanDecision } from '@prisma/client';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { planShortlist, type ShortlistPlan } from './shortlist-plan';
 
 @Injectable()
 export class ApplicationsService {
@@ -124,23 +125,44 @@ export class ApplicationsService {
     return { removed: applications.length };
   }
 
-  async shortlistStrongFits(jobId: string) {
-    const strongFits = await this.prisma.application.findMany({
-      where: {
-        jobId,
-        failureReason: null,
-        score: { bucket: Bucket.STRONG_FIT },
-        reviews: { none: {} },
+  async shortlistPlan(jobId: string, limit: number): Promise<ShortlistPlan> {
+    const applications = await this.prisma.application.findMany({
+      where: { jobId, failureReason: null, score: { isNot: null } },
+      select: {
+        id: true,
+        candidate: { select: { name: true, email: true } },
+        score: {
+          select: { fitScore: true, bucket: true, fitRationaleJson: true },
+        },
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { humanDecision: true },
+        },
       },
-      select: { id: true },
     });
-    const { count } = await this.prisma.review.createMany({
-      data: strongFits.map((application) => ({
-        applicationId: application.id,
-        humanDecision: HumanDecision.SHORTLIST,
-      })),
-    });
-    return { shortlisted: count };
+
+    const alreadyShortlisted = applications.filter(
+      (a) => a.reviews[0]?.humanDecision === HumanDecision.SHORTLIST,
+    ).length;
+    const undecided = applications
+      .filter((a) => a.reviews.length === 0 && a.score)
+      .map((a) => {
+        const rationale = a.score!.fitRationaleJson as { gaps?: unknown };
+        const firstGap: unknown = Array.isArray(rationale?.gaps)
+          ? rationale.gaps[0]
+          : null;
+        return {
+          id: a.id,
+          name: a.candidate.name,
+          email: a.candidate.email,
+          score: a.score!.fitScore,
+          bucket: a.score!.bucket,
+          worthAsking: typeof firstGap === 'string' ? firstGap : null,
+        };
+      });
+
+    return planShortlist(undecided, alreadyShortlisted, limit);
   }
 
   async createReview(applicationId: string, dto: CreateReviewDto) {

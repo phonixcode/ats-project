@@ -14,6 +14,7 @@ import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { ProcessRemainingDto } from './dto/process-remaining.dto';
 import { ExportCandidatesDto } from './dto/export-candidates.dto';
+import { ShortlistPlanQueryDto } from './dto/shortlist-plan-query.dto';
 import { ProcessingService } from '../processing/processing.service';
 import { ApplicationsService } from '../applications/applications.service';
 
@@ -43,9 +44,12 @@ export class JobsController {
     return this.jobsService.findAll({ postedFrom, postedTo });
   }
 
-  @Post(':id/shortlist-strong-fits')
-  shortlistStrongFits(@Param('id') id: string) {
-    return this.applicationsService.shortlistStrongFits(id);
+  @Get(':id/shortlist-plan')
+  shortlistPlan(
+    @Param('id') id: string,
+    @Query() query: ShortlistPlanQueryDto,
+  ) {
+    return this.applicationsService.shortlistPlan(id, query.limit);
   }
 
   @Post(':id/rescore')
@@ -59,10 +63,7 @@ export class JobsController {
   }
 
   @Get(':id/export')
-  async export(
-    @Param('id') id: string,
-    @Query() query: ExportCandidatesDto,
-  ) {
+  async export(@Param('id') id: string, @Query() query: ExportCandidatesDto) {
     const { csv, filename } = await this.jobsService.exportCandidates(
       id,
       query.decision ?? 'SHORTLIST',

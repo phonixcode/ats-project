@@ -27,6 +27,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "updater.js",
       "build/icon.png"
     ],
     "extraResources": [
@@ -85,7 +86,19 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "deleteAppDataOnUninstall": false,
-      "uninstallDisplayName": "MG-ATS"
-    }
+      "uninstallDisplayName": "MG-ATS",
+      "artifactName": "MG-ATS-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "phonixcode",
+        "repo": "ats-project",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.11"
   }
 }

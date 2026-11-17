@@ -80,7 +80,9 @@ On the Windows app, add cloud keys in **Settings**. They stay in `%APPDATA%\MG-A
 | Laptop (`npm run start:dev`) | `backend/data/` (`mg-ats.db`, `uploads/`) |
 | Packaged Windows app | `%APPDATA%\MG-ATS\` |
 
-Uninstalling the Windows app does not delete that folder unless you choose to.
+Uninstalling the Windows app does not delete that folder unless you choose to. Updates never touch it.
+
+Before the app changes the database structure on an update, it saves a copy to `backups\` in the same folder (the last 5 are kept). To roll back, close MG-ATS and copy a backup over `mg-ats.db`.
 
 This is a new SQLite file. Roles you had in an old Postgres database are not copied over — post the job again and re-upload resumes.
 
@@ -104,6 +106,25 @@ GitHub Actions builds the `.exe` on a Windows runner. After this workflow is on 
 2. Open that run and download **MG-ATS-windows**
 
 Pushing a `v*` tag (for example `v0.1.0`) also builds and attaches the `.exe` to a GitHub Release.
+
+### Shipping an update
+
+Installed apps check this repo's GitHub Releases on start and every 4 hours (Help → **Check for updates…** checks now). The repo must be public for that to work.
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The tag sets the app version, so each release needs a higher number than the last. CI publishes the installer, `latest.yml` and the `.blockmap`; the app needs all three. Users see **Update now / Later**, the download runs in the background, then **Restart now** installs it into the same folder. Their data folder is left alone.
+
+Changing the database:
+
+1. Edit `backend/prisma/schema.prisma`.
+2. `cd backend && npx prisma migrate dev --name what_changed` — commit the new folder under `prisma/migrations/`.
+3. Keep changes additive: new tables, and new columns that are optional or have a default. Never rename or drop a column people's data lives in; add the new one and copy across in the same migration.
+
+On start, the app applies migrations it hasn't run yet, one at a time, each all-or-nothing, after taking a backup.
 
 Do not pack from a Mac. Native modules will be wrong.
 

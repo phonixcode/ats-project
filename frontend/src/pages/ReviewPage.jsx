@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader';
 import { useConfirm } from '../hooks/useConfirm';
 import { useReaderStatus } from '../hooks/useReaderStatus';
 import ReaderProblemBanner from '../components/ReaderProblemBanner';
+import ShortlistPlanner from '../components/ShortlistPlanner';
 import {
   matchLabel,
   displayName,
@@ -49,6 +50,7 @@ export default function ReviewPage() {
   const [readerStatus, refreshReaderStatus] = useReaderStatus();
   const rescoringRef = useRef(false);
   const [selected, setSelected] = useState(() => new Set());
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   const query = params.get('q') ?? '';
   const view = params.get('view') ?? 'to_review';
@@ -184,26 +186,11 @@ export default function ReviewPage() {
     }
   };
 
-  const shortlistStrongFits = async () => {
-    const ok = await confirm({
-      title: `Shortlist ${counts.strongFits} good match${counts.strongFits === 1 ? '' : 'es'}?`,
-      message:
-        'Everyone marked Strong match or Good match that you haven’t decided on yet goes to your shortlist. Skim their “Worth asking” lines first — you can still change each person later.',
-      confirmLabel: 'Shortlist them',
-    });
-    if (!ok) return;
-    setBulkAction('shortlist');
+  const finishPlanner = async (count) => {
+    setPlannerOpen(false);
     setExportError(null);
-    setExportNotice(null);
-    try {
-      const res = await api.post(`/jobs/${jobId}/shortlist-strong-fits`);
-      await loadApplications();
-      setExportNotice(`Shortlisted ${res.data.shortlisted} good match${res.data.shortlisted === 1 ? '' : 'es'}.`);
-    } catch (err) {
-      setExportError(userError(err, "We couldn't shortlist those candidates. Try again."));
-    } finally {
-      setBulkAction(null);
-    }
+    await loadApplications();
+    setExportNotice(`Shortlisted ${count} ${count === 1 ? 'person' : 'people'}.`);
   };
 
   const readEveryoneAgain = async () => {
@@ -369,9 +356,9 @@ export default function ReviewPage() {
                   <button className="btn-quiet" disabled={Boolean(exporting)} onClick={() => exportList('ALL')}>
                     {exporting === 'ALL' ? 'Preparing list…' : 'Export everyone'}
                   </button>
-                  {counts.strongFits > 0 && (
-                    <button className="btn" disabled={Boolean(bulkAction)} onClick={shortlistStrongFits}>
-                      {bulkAction === 'shortlist' ? 'Shortlisting…' : `Shortlist ${counts.strongFits} good match${counts.strongFits === 1 ? '' : 'es'}`}
+                  {counts.strongFits + counts.closerLook > 0 && (
+                    <button className="btn" disabled={Boolean(bulkAction)} onClick={() => setPlannerOpen(true)}>
+                      Pick a shortlist…
                     </button>
                   )}
                   {counts.shortlisted > 0 && (
@@ -471,6 +458,14 @@ export default function ReviewPage() {
         </div>
       )}
       {confirmDialog}
+      {plannerOpen && (
+        <ShortlistPlanner
+          jobId={jobId}
+          initialLimit={counts.shortlisted + Math.max(1, Math.min(counts.strongFits, 5))}
+          onClose={() => setPlannerOpen(false)}
+          onShortlisted={finishPlanner}
+        />
+      )}
     </Layout>
   );
 }

@@ -2,8 +2,10 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron')
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { setupAutoUpdates } = require('./updater');
 
 let mainWindow = null;
+let checkForUpdatesNow = null;
 let apiProcess = null;
 let apiBase = 'http://127.0.0.1:3000';
 
@@ -230,6 +232,13 @@ function buildMenu() {
           label: 'Export logs…',
           click: exportLogs,
         },
+        { type: 'separator' },
+        {
+          label: 'Check for updates…',
+          enabled: app.isPackaged,
+          click: () => checkForUpdatesNow?.(),
+        },
+        { label: `Version ${app.getVersion()}`, enabled: false },
       ],
     },
   ]);
@@ -244,6 +253,9 @@ app.whenReady().then(async () => {
   try {
     await startApi();
     createWindow();
+    if (app.isPackaged) {
+      checkForUpdatesNow = setupAutoUpdates({ getWindow: () => mainWindow, logPath: logFile() });
+    }
   } catch (error) {
     dialog.showErrorBox('MG-ATS', error.message);
     app.quit();
