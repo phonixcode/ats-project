@@ -1,20 +1,27 @@
 import {
+  BadRequestException,
   Controller,
   Post,
-  UploadedFile,
+  UploadedFiles,
   UseInterceptors,
   Body,
   Get,
+  Logger,
   Param,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { mkdirSync } from 'fs';
-import { join } from 'path';
+import { randomUUID } from 'crypto';
+import { extname, join } from 'path';
 import { CreateBatchDto } from './dto/create-batch.dto';
 import { BatchesService } from './batches.service';
+import { RESUME_EXTENSIONS } from './archive-extraction.service';
 import { ProcessingService } from '../processing/processing.service';
 import { uploadsRoot } from '../common/storage';
+
+const MAX_UPLOAD_FILES = 1000;
+const logger = new Logger('BatchesController');
 
 @Controller('batches')
 export class BatchesController {
@@ -25,7 +32,7 @@ export class BatchesController {
 
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
+    FilesInterceptor('files', MAX_UPLOAD_FILES, {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
           const dir = join(uploadsRoot(), 'incoming');
@@ -33,19 +40,41 @@ export class BatchesController {
           cb(null, dir);
         },
         filename: (_req, file, cb) =>
-          cb(null, `${Date.now()}-${file.originalname}`),
+          cb(null, `${randomUUID()}${extname(file.originalname)}`),
       }),
-      limits: { fileSize: 200 * 1024 * 1024 }, // 200MB cap on the zip itself
+      fileFilter: (_req, file, cb) => {
+        const ext = extname(file.originalname).toLowerCase();
+        if (ext === '.zip' || RESUME_EXTENSIONS.has(ext)) {
+          cb(null, true);
+          return;
+        }
+        logger.warn(`Rejected upload ${file.originalname}: unsupported type`);
+        cb(
+          new BadRequestException(
+            `${file.originalname} isn't a .zip, PDF or Word file.`,
+          ),
+          false,
+        );
+      },
+      limits: { fileSize: 200 * 1024 * 1024 },
     }),
   )
   async upload(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: CreateBatchDto,
   ) {
+    if (!files?.length) {
+      throw new BadRequestException(
+        'Choose at least one .zip, PDF or Word file.',
+      );
+    }
     const batch = await this.batchesService.create(dto.jobId, 0);
-    this.processingService.enqueueArchive({
+    this.processingService.enqueueIngest({
       batchId: batch.id,
-      zipPath: file.path,
+      uploads: files.map((file) => ({
+        originalName: file.originalname,
+        path: file.path,
+      })),
     });
     return batch;
   }

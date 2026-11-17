@@ -3,6 +3,7 @@ import { ApplicationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProcessRemainingDto } from '../jobs/dto/process-remaining.dto';
 import { DesktopQueueService } from '../queue/desktop-queue.service';
+import type { IngestBatchJobData } from '../queue/job-data';
 
 const UNREADABLE: ApplicationStatus[] = [
   ApplicationStatus.PARSE_FAILED,
@@ -67,8 +68,8 @@ export class ProcessingService {
     this.jobs.enqueueScore({ applicationId });
   }
 
-  enqueueArchive(data: { batchId: string; zipPath: string }) {
-    this.jobs.enqueueArchive(data);
+  enqueueIngest(data: IngestBatchJobData) {
+    this.jobs.enqueueIngest(data);
   }
 
   private enqueueIfNeeded(application: {

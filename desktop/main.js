@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -90,6 +90,7 @@ function startApi() {
     PORT: '0',
     MG_ATS_DATA_DIR: dir,
     MG_ATS_STATIC: staticDir(),
+    NO_COLOR: '1',
     DATABASE_URL: `file:${path.join(dir, 'mg-ats.db')}`,
   };
   if (app.isPackaged) {
@@ -98,6 +99,7 @@ function startApi() {
 
   const logPath = logFile();
   const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+  logStream.write(`\n=== MG-ATS ${app.getVersion()} started ${new Date().toISOString()} ===\n`);
   const readyFile = path.join(dir, 'api.ready');
   try {
     fs.unlinkSync(readyFile);
@@ -189,7 +191,48 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(apiBase)) event.preventDefault();
+  });
   mainWindow.loadURL(apiBase);
+}
+
+async function exportLogs() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export MG-ATS logs',
+    defaultPath: path.join(app.getPath('desktop'), `mg-ats-logs-${stamp}.log`),
+    filters: [{ name: 'Log files', extensions: ['log', 'txt'] }],
+  });
+  if (canceled || !filePath) return;
+  try {
+    await fs.promises.copyFile(logFile(), filePath);
+    shell.showItemInFolder(filePath);
+  } catch (error) {
+    dialog.showErrorBox('MG-ATS', `Could not export logs. ${error.message}`);
+  }
+}
+
+function buildMenu() {
+  return Menu.buildFromTemplate([
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Open logs folder',
+          click: () => shell.openPath(path.dirname(logFile())),
+        },
+        {
+          label: 'Export logs…',
+          click: exportLogs,
+        },
+      ],
+    },
+  ]);
 }
 
 ipcMain.on('mg-ats:api-base', (event) => {
@@ -197,6 +240,7 @@ ipcMain.on('mg-ats:api-base', (event) => {
 });
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(buildMenu());
   try {
     await startApi();
     createWindow();

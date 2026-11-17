@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { scoringConcurrency } from '../common/paths';
 import { InProcessQueue } from './in-process-queue';
 import type {
-  ExtractArchiveJobData,
+  IngestBatchJobData,
   ExtractJobData,
   ParseResumeJobData,
   ScoringJobData,
@@ -13,13 +13,13 @@ type Handler<T> = (data: T) => Promise<void>;
 @Injectable()
 export class DesktopQueueService {
   private readonly runner = new InProcessQueue(scoringConcurrency());
-  private archiveHandler: Handler<ExtractArchiveJobData> | null = null;
+  private ingestHandler: Handler<IngestBatchJobData> | null = null;
   private parseHandler: Handler<ParseResumeJobData> | null = null;
   private extractHandler: Handler<ExtractJobData> | null = null;
   private scoreHandler: Handler<ScoringJobData> | null = null;
 
-  registerArchive(handler: Handler<ExtractArchiveJobData>) {
-    this.archiveHandler = handler;
+  registerIngest(handler: Handler<IngestBatchJobData>) {
+    this.ingestHandler = handler;
   }
 
   registerParse(handler: Handler<ParseResumeJobData>) {
@@ -34,8 +34,8 @@ export class DesktopQueueService {
     this.scoreHandler = handler;
   }
 
-  enqueueArchive(data: ExtractArchiveJobData) {
-    this.runner.add(() => this.require(this.archiveHandler, 'archive')(data));
+  enqueueIngest(data: IngestBatchJobData) {
+    this.runner.add(() => this.require(this.ingestHandler, 'ingest')(data));
   }
 
   enqueueParse(data: ParseResumeJobData) {

@@ -1,6 +1,11 @@
-export interface ExtractArchiveJobData {
+export interface UploadedResumeFile {
+  originalName: string;
+  path: string;
+}
+
+export interface IngestBatchJobData {
   batchId: string;
-  zipPath: string;
+  uploads: UploadedResumeFile[];
 }
 
 export interface ParseResumeJobData {

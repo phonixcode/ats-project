@@ -46,7 +46,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 1. Open **Settings** and paste an OpenAI, Claude, or Gemini key (one is enough). Skip this for a basic built-in read.
 2. Post a job — title, description, and who you need in one box.
-3. Upload a `.zip` of resumes (PDF or Word).
+3. Drag in resumes — a `.zip`, or one or many PDF/Word files.
 4. Open **Review**. Work the “To review” list, 20 at a time.
 5. Open a candidate, tap **Shortlist** when they should go forward.
 6. **Export shortlist** downloads a CSV you can open in Excel.
@@ -161,5 +161,6 @@ desktop/    Electron shell and Windows NSIS config
 | Empty roles list after the SQLite switch | Expected. Post a job and upload resumes again. |
 | Scoring stuck | Stay on the candidate page — it updates when the score is ready. Or tap **Score leftover** if resumes are still waiting. |
 | “Couldn’t read this file” | The zip entry was not a readable PDF/Word resume. Skip it or fix the file and upload again. |
+| Upload fails or a batch shows nothing read | Desktop: **Help → Open logs folder** and check `api.log`, or **Help → Export logs…** to save a copy to share. Each upload logs what it received, extracted, and skipped. **View → Toggle Developer Tools** shows UI errors. |
 
 No Redis. No Postgres. No public server port — the API binds to this machine only.

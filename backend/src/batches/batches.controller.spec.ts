@@ -11,7 +11,7 @@ describe('BatchesController', () => {
       controllers: [BatchesController],
       providers: [
         { provide: BatchesService, useValue: {} },
-        { provide: ProcessingService, useValue: { enqueueArchive: jest.fn() } },
+        { provide: ProcessingService, useValue: { enqueueIngest: jest.fn() } },
       ],
     }).compile();
 

@@ -4,14 +4,28 @@ import { api } from '../lib/api';
 import Layout from '../components/Layout';
 import { formatPostedDate, userError } from '../lib/format';
 
+const ACCEPTED_EXTENSIONS = ['.zip', '.pdf', '.doc', '.docx'];
+
+function isAccepted(file) {
+  const name = file.name.toLowerCase();
+  return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+function formatSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export default function UploadPage() {
   const { jobId } = useParams();
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
   const [job, setJob] = useState(null);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [dragging, setDragging] = useState(false);
   const [batch, setBatch] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -24,10 +38,35 @@ export default function UploadPage() {
     };
   }, [jobId]);
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+  const addFiles = (fileList) => {
+    const incoming = Array.from(fileList);
+    const rejected = incoming.filter((f) => !isAccepted(f));
+    setFiles((current) => {
+      const seen = new Set(current.map((f) => `${f.name}:${f.size}`));
+      const fresh = incoming.filter((f) => isAccepted(f) && !seen.has(`${f.name}:${f.size}`));
+      return [...current, ...fresh];
+    });
     setBatch(null);
-    setError(null);
+    setError(
+      rejected.length
+        ? `Skipped ${rejected.map((f) => f.name).join(', ')}. Only .zip, PDF and Word files can be read.`
+        : null,
+    );
+  };
+
+  const handleFileChange = (e) => {
+    addFiles(e.target.files);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const removeFile = (index) => {
+    setFiles((current) => current.filter((_, i) => i !== index));
   };
 
   const startPolling = (batchId) => {
@@ -49,20 +88,24 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setUploading(true);
+    setUploadPct(0);
     setError(null);
     const formData = new FormData();
-    formData.append('file', file);
     formData.append('jobId', jobId);
+    files.forEach((f) => formData.append('files', f));
     try {
       const res = await api.post('/batches/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+          if (e.total) setUploadPct(Math.round((e.loaded / e.total) * 100));
+        },
       });
       setBatch(res.data);
       startPolling(res.data.id);
     } catch (err) {
-      setError(userError(err, 'We couldn’t upload that file. Check it’s a .zip and try again.'));
+      setError(userError(err, 'We couldn’t upload those files. Check they’re .zip, PDF or Word files and try again.'));
     } finally {
       setUploading(false);
     }
@@ -77,7 +120,7 @@ export default function UploadPage() {
     PROCESSING: 'MG-ATS is reading each resume against the posting. This can take a few minutes.',
     COMPLETED: 'First read is done. Open Review and make your calls.',
     COMPLETED_WITH_ERRORS: 'First read is done — a few files couldn’t be opened. Everything else is ready for you.',
-    FAILED: 'None of the files could be opened. Check the zip and try again.',
+    FAILED: 'None of the files could be opened. Check the files and try again.',
   };
 
   return (
@@ -88,35 +131,67 @@ export default function UploadPage() {
       </h2>
       <p className="muted" style={{ marginTop: 6 }}>
         {job ? `Posted ${formatPostedDate(job.postedAt)}. ` : ''}
-        Choose a .zip of PDF or Word resumes. MG-ATS reads each file against this posting, then you make the call.
+        Drop a .zip, or PDF and Word resumes — one or many. MG-ATS reads each file against this posting, then you make the call.
       </p>
 
       {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
 
       {!batch && (
         <div
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!uploading) setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => (uploading ? e.preventDefault() : handleDrop(e))}
           className="empty"
-          style={{ cursor: 'pointer', background: 'white' }}
+          style={{
+            cursor: uploading ? 'default' : 'pointer',
+            background: dragging ? 'var(--accent-soft)' : 'white',
+            borderColor: dragging ? 'var(--accent)' : undefined,
+          }}
         >
           <input
             ref={fileInputRef}
             type="file"
-            accept=".zip"
+            multiple
+            accept={ACCEPTED_EXTENSIONS.join(',')}
             onChange={handleFileChange}
             style={{ display: 'none' }}
           />
-          {file ? (
-            <p><strong>{file.name}</strong> selected</p>
-          ) : (
-            <p>Click to choose a .zip of resumes</p>
-          )}
+          <p style={{ margin: 0 }}>
+            {dragging ? 'Drop to add these files' : 'Drag files here, or click to choose'}
+          </p>
+          <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>.zip, PDF or Word · one or many</p>
         </div>
       )}
 
-      {file && !batch && (
+      {files.length > 0 && !batch && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <p className="mono muted" style={{ fontSize: 13, marginTop: 0 }}>
+            {files.length} file{files.length === 1 ? '' : 's'} ·{' '}
+            {formatSize(files.reduce((sum, f) => sum + f.size, 0))}
+          </p>
+          <div className="stack" style={{ gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+            {files.map((f, index) => (
+              <div key={`${f.name}:${f.size}`} className="row" style={{ justifyContent: 'space-between' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                <span className="row">
+                  <span className="mono muted" style={{ fontSize: 12 }}>{formatSize(f.size)}</span>
+                  <button className="btn-quiet" onClick={() => removeFile(index)} disabled={uploading}>
+                    Remove
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {files.length > 0 && !batch && (
         <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleUpload} disabled={uploading}>
-          {uploading ? 'Uploading…' : 'Read these resumes'}
+          {uploading ? `Uploading… ${uploadPct}%` : 'Read these resumes'}
         </button>
       )}
 
