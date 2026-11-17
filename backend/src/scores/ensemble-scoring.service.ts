@@ -27,7 +27,7 @@ export class EnsembleScoringService {
     const { fit, authenticity, provider } = await this.registry.runWithFallback(
       async (candidate) => {
         const [fitResult, authenticityResult] = await Promise.all([
-          candidate.scoreFit(resumeData, posting),
+          candidate.scoreFit(resumeData, resumeText, posting),
           candidate.assessAuthenticity(resumeText),
         ]);
         return {
@@ -56,7 +56,10 @@ export class EnsembleScoringService {
     return { consensus };
   }
 
-  private persistOpinion(applicationId: string, opinion: JudgeOpinion) {
+  private async persistOpinion(applicationId: string, opinion: JudgeOpinion) {
+    await this.prisma.modelOpinion.deleteMany({
+      where: { applicationId, provider: { not: opinion.provider } },
+    });
     return this.prisma.modelOpinion.upsert({
       where: {
         applicationId_provider: {

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -14,12 +15,14 @@ import { UpdateJobDto } from './dto/update-job.dto';
 import { ProcessRemainingDto } from './dto/process-remaining.dto';
 import { ExportCandidatesDto } from './dto/export-candidates.dto';
 import { ProcessingService } from '../processing/processing.service';
+import { ApplicationsService } from '../applications/applications.service';
 
 @Controller('jobs')
 export class JobsController {
   constructor(
     private jobsService: JobsService,
     private processingService: ProcessingService,
+    private applicationsService: ApplicationsService,
   ) {}
 
   @Post()
@@ -38,6 +41,21 @@ export class JobsController {
     @Query('postedTo') postedTo?: string,
   ) {
     return this.jobsService.findAll({ postedFrom, postedTo });
+  }
+
+  @Post(':id/shortlist-strong-fits')
+  shortlistStrongFits(@Param('id') id: string) {
+    return this.applicationsService.shortlistStrongFits(id);
+  }
+
+  @Post(':id/rescore')
+  rescore(@Param('id') id: string) {
+    return this.processingService.rescoreJob(id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.jobsService.remove(id);
   }
 
   @Get(':id/export')

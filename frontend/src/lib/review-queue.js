@@ -27,11 +27,28 @@ export function inView(application, view) {
   if (view === 'to_review') {
     return Boolean(application.score) && !decision && !application.failureReason;
   }
+  if (view === 'good_matches' || view === 'possible_matches') {
+    const bucket = view === 'good_matches' ? 'STRONG_FIT' : 'NEEDS_REVIEW';
+    return application.score?.bucket === bucket && !decision && !application.failureReason;
+  }
   if (view === 'shortlisted') return decision === 'SHORTLIST';
   if (view === 'maybe') return decision === 'MAYBE';
   if (view === 'passed') return decision === 'REJECT';
   if (view === 'unread') return Boolean(application.failureReason);
   return true;
+}
+
+export function isStillReading(application) {
+  if (application.failureReason) return false;
+  return !application.score || application.status === 'SCORING';
+}
+
+export function readerNote(application) {
+  const rationale = application.score?.fitRationaleJson;
+  if (!rationale) return null;
+  const verdict = (rationale.summary || '').split(/(?<=[.!?])\s/)[0] || null;
+  const toCheck = (rationale.gaps || [])[0] || null;
+  return verdict || toCheck ? { verdict, toCheck } : null;
 }
 
 export function compareByScore(left, right) {
@@ -47,6 +64,8 @@ export function summarizeQueue(applications) {
     maybe: 0,
     passed: 0,
     unread: 0,
+    strongFits: 0,
+    closerLook: 0,
     scoring: 0,
     total: applications.length,
   };
@@ -63,7 +82,11 @@ export function summarizeQueue(applications) {
     if (decision === 'SHORTLIST') counts.shortlisted += 1;
     else if (decision === 'MAYBE') counts.maybe += 1;
     else if (decision === 'REJECT') counts.passed += 1;
-    else counts.toReview += 1;
+    else {
+      counts.toReview += 1;
+      if (application.score.bucket === 'STRONG_FIT') counts.strongFits += 1;
+      if (application.score.bucket === 'NEEDS_REVIEW') counts.closerLook += 1;
+    }
   }
   return counts;
 }

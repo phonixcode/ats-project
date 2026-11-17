@@ -125,11 +125,8 @@ export default function UploadPage() {
 
   return (
     <Layout>
-      <Link to="/" className="muted" style={{ fontSize: 14, textDecoration: 'none' }}>← All roles</Link>
-      <h2 className="page-title" style={{ marginTop: 12 }}>
-        Upload resumes{job ? ` · ${job.title}` : ''}
-      </h2>
-      <p className="muted" style={{ marginTop: 6 }}>
+      <h1 className="page-title">Upload resumes</h1>
+      <p className="muted" style={{ margin: '6px 0 20px', maxWidth: 640 }}>
         {job ? `Posted ${formatPostedDate(job.postedAt)}. ` : ''}
         Drop a .zip, or PDF and Word resumes — one or many. MG-ATS reads each file against this posting, then you make the call.
       </p>
@@ -212,7 +209,7 @@ export default function UploadPage() {
           </p>
           <p>{statusCopy[batch.status] || 'Working on it…'}</p>
           {batch.status !== 'PROCESSING' && (
-            <Link className="btn btn-ink" to={`/jobs/${jobId}`}>Start reviewing →</Link>
+            <Link className="btn btn-primary" to={`/jobs/${jobId}`}>Start reviewing</Link>
           )}
         </div>
       )}

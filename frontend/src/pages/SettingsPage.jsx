@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import Layout from '../components/Layout';
+import ReaderProblemBanner from '../components/ReaderProblemBanner';
+import { useReaderStatus } from '../hooks/useReaderStatus';
 import { userError } from '../lib/format';
 
 const READERS = [
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [readerStatus] = useReaderStatus();
 
   const applyStatus = (data) => {
     setStatus(data);
@@ -126,18 +128,14 @@ export default function SettingsPage() {
 
   return (
     <Layout>
-      <Link to="/" className="muted" style={{ textDecoration: 'none', fontSize: 14 }}>
-        ← All roles
-      </Link>
-      <h2 className="page-title" style={{ marginTop: 12, marginBottom: 8 }}>
-        Who should read the resumes?
-      </h2>
-      <p className="muted" style={{ marginTop: 0, marginBottom: 24, maxWidth: 640 }}>
+      <h1 className="page-title">Who should read the resumes?</h1>
+      <p className="muted" style={{ margin: '6px 0 24px', maxWidth: 640 }}>
         You pick the service. MG-ATS only uses that one. A key is optional — Basic read still works. Keys stay on this PC.
       </p>
 
       {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
       {notice && <div className="success-banner" style={{ marginBottom: 16 }}>{notice}</div>}
+      {!notice && <ReaderProblemBanner failure={readerStatus?.lastFailure} showSettingsLink={false} />}
 
       {loading ? (
         <p className="muted">Loading settings…</p>

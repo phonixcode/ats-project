@@ -5,6 +5,11 @@ import { ProviderRegistryService } from './provider-registry.service';
 export class LlmController {
   constructor(private registry: ProviderRegistryService) {}
 
+  @Get('status')
+  status() {
+    return this.registry.status();
+  }
+
   @Get('providers')
   availability() {
     return { ready: this.registry.fallbackChain().length > 0 };

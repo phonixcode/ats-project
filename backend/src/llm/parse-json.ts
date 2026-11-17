@@ -15,11 +15,16 @@ export function clampFitResult(result: {
   rationale: { strengths: string[]; gaps: string[]; summary: string };
   requirementChecks?: unknown;
 }) {
-  const score = Number(result.fitScore);
+  const score =
+    typeof result.fitScore === 'number' ||
+    (typeof result.fitScore === 'string' && /\d/.test(result.fitScore))
+      ? Number(result.fitScore)
+      : NaN;
+  if (!Number.isFinite(score)) {
+    throw new Error('the reader’s reply had no score');
+  }
   return {
-    fitScore: Number.isFinite(score)
-      ? Math.min(100, Math.max(0, Math.round(score)))
-      : 0,
+    fitScore: Math.min(100, Math.max(0, Math.round(score))),
     rationale: {
       strengths: result.rationale?.strengths ?? [],
       gaps: result.rationale?.gaps ?? [],

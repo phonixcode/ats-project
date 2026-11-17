@@ -3,8 +3,13 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { downloadJobExport } from '../lib/export';
 import Layout from '../components/Layout';
+import Menu from '../components/Menu';
+import PageHeader from '../components/PageHeader';
+import { useConfirm } from '../hooks/useConfirm';
 import {
+  attentionLine,
   formatPostedDate,
+  greeting,
   userError,
   WORKPLACE_LABELS,
 } from '../lib/format';
@@ -19,6 +24,7 @@ export default function JobsPage() {
   const [exportingId, setExportingId] = useState(null);
   const [exportNotice, setExportNotice] = useState(null);
   const [exportError, setExportError] = useState(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const paramsForRange = () => {
     const now = new Date();
@@ -71,37 +77,57 @@ export default function JobsPage() {
     }
   };
 
+  const deleteRole = async (job) => {
+    const ok = await confirm({
+      title: `Delete “${job.title}”?`,
+      message: `This removes the role${job.applicationCount ? `, its ${job.applicationCount} candidate${job.applicationCount === 1 ? '' : 's'} and their resume files` : ''}, to free up space. It can’t be undone — export the shortlist first if you need it.`,
+      confirmLabel: 'Delete role',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setExportError(null);
+    setExportNotice(null);
+    try {
+      await api.delete(`/jobs/${job.id}`);
+      setExportNotice(`Deleted ${job.title}.`);
+      loadJobs();
+    } catch (err) {
+      setExportError(userError(err, "We couldn't delete that role. Try again."));
+    }
+  };
+
   return (
     <Layout>
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-        <h2 className="page-title">Roles</h2>
-        <Link className="btn btn-primary" to="/jobs/new">Post a job</Link>
+      <div className="welcome">
+        <h1>{greeting()}</h1>
+        <p>{loading ? 'Getting your roles ready…' : attentionLine(jobs)}</p>
       </div>
-      <p className="muted" style={{ marginTop: 0, marginBottom: 20 }}>
-        Post a role, upload a zip, then work the pile. MG-ATS reads each resume so you can shortlist faster.
-      </p>
-
-      <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
-        <label className="muted" style={{ fontSize: 13 }}>
-          Posted
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            style={{ marginLeft: 8, padding: '6px 10px', border: '1px solid var(--line)', borderRadius: 8 }}
-          >
-            <option value="all">Any time</option>
-            <option value="week">This week</option>
-            <option value="month">This month</option>
-            <option value="custom">Custom dates</option>
-          </select>
-        </label>
-        {range === 'custom' && (
-          <>
+      <PageHeader
+        title="Your roles"
+        actions={
+          <label className="row muted" style={{ fontSize: 14 }}>
+            Posted
+            <select className="role-switch" value={range} onChange={(e) => setRange(e.target.value)}>
+              <option value="all">Any time</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="custom">Custom dates</option>
+            </select>
+          </label>
+        }
+      />
+      {range === 'custom' && (
+        <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
+          <label className="field" style={{ width: 180 }}>
+            From
             <input type="date" value={postedFrom} onChange={(e) => setPostedFrom(e.target.value)} />
+          </label>
+          <label className="field" style={{ width: 180 }}>
+            To
             <input type="date" value={postedTo} onChange={(e) => setPostedTo(e.target.value)} />
-          </>
-        )}
-      </div>
+          </label>
+        </div>
+      )}
 
       {error && <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>}
       {exportError && <div className="error-banner" style={{ marginBottom: 16 }}>{exportError}</div>}
@@ -111,8 +137,9 @@ export default function JobsPage() {
         <p className="muted">Loading roles…</p>
       ) : jobs.length === 0 ? (
         <div className="empty">
-          No roles yet. Post a job, then upload resumes — MG-ATS handles the first read.
-          <div style={{ marginTop: 14 }}>
+          <h2 style={{ fontSize: 20, margin: '0 0 6px', color: 'var(--ink)' }}>Post your first role</h2>
+          <p style={{ margin: 0 }}>Describe the job, upload resumes, and MG-ATS does the first read against it.</p>
+          <div style={{ marginTop: 16 }}>
             <Link className="btn btn-primary" to="/jobs/new">Post a job</Link>
           </div>
         </div>
@@ -120,50 +147,59 @@ export default function JobsPage() {
         <table className="jobs-table">
           <thead>
             <tr>
-              <th>Posted</th>
               <th>Role</th>
-              <th>Location</th>
-              <th>Waiting</th>
-              <th>Status</th>
-              <th></th>
+              <th>Posted</th>
+              <th>Candidates</th>
+              <th aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
             {jobs.map((job) => (
               <tr key={job.id}>
-                <td className="mono" style={{ fontSize: 12 }}>{formatPostedDate(job.postedAt)}</td>
                 <td>
-                  <Link to={`/jobs/${job.id}`} style={{ fontWeight: 600, textDecoration: 'none' }}>
-                    {job.title}
-                  </Link>
+                  <Link className="role-title" to={`/jobs/${job.id}`}>{job.title}</Link>
+                  <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                    {[job.location, WORKPLACE_LABELS[job.workplace]].filter(Boolean).join(', ') || 'No location set'}
+                    {job.status && job.status !== 'open' ? ` (${job.status})` : ''}
+                  </div>
                 </td>
-                <td className="muted">
-                  {job.location || '—'}
-                  {job.workplace ? ` · ${WORKPLACE_LABELS[job.workplace]}` : ''}
-                </td>
-                <td style={{ fontSize: 13 }}>
-                  {job.unreviewedCount > 0
-                    ? `${job.unreviewedCount} to review`
-                    : job.shortlistedCount > 0
-                      ? `${job.shortlistedCount} shortlisted`
-                      : job.applicationCount > 0
-                        ? `${job.applicationCount} in`
-                        : 'No resumes yet'}
-                </td>
-                <td>{job.status === 'open' ? 'Open' : job.status}</td>
+                <td className="muted">{formatPostedDate(job.postedAt)}</td>
                 <td>
-                  <div className="row" style={{ flexWrap: 'wrap' }}>
-                    <Link className="btn btn-primary" to={`/jobs/${job.id}`}>Review</Link>
-                    <Link className="btn-quiet" to={`/jobs/${job.id}/upload`}>Upload</Link>
-                    {job.shortlistedCount > 0 && (
-                      <button
-                        className="btn-quiet"
-                        disabled={exportingId === job.id}
-                        onClick={() => exportShortlist(job)}
-                      >
-                        {exportingId === job.id ? 'Preparing…' : 'Export shortlist'}
-                      </button>
+                  {job.applicationCount > 0 ? (
+                    <>
+                      <span className="count-strong">{job.unreviewedCount || 0}</span>{' '}
+                      <span className="muted">to review</span>
+                      {job.shortlistedCount > 0 && (
+                        <div className="muted" style={{ fontSize: 13 }}>{job.shortlistedCount} shortlisted</div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="muted">No resumes yet</span>
+                  )}
+                </td>
+                <td>
+                  <div className="row" style={{ justifyContent: 'flex-end' }}>
+                    {job.applicationCount > 0 ? (
+                      <Link className="btn" to={`/jobs/${job.id}`}>Review</Link>
+                    ) : (
+                      <Link className="btn" to={`/jobs/${job.id}/upload`}>Upload resumes</Link>
                     )}
+                    <Menu
+                      label={`More actions for ${job.title}`}
+                      items={[
+                        { key: 'upload', label: 'Upload resumes', to: `/jobs/${job.id}/upload` },
+                        { key: 'edit', label: 'Edit posting', to: `/jobs/${job.id}/edit` },
+                        ...(job.shortlistedCount > 0
+                          ? [{
+                              key: 'export',
+                              label: exportingId === job.id ? 'Preparing shortlist…' : 'Export shortlist',
+                              onSelect: () => exportShortlist(job),
+                            }]
+                          : []),
+                        { key: 'divider', divider: true },
+                        { key: 'delete', label: 'Delete role', danger: true, onSelect: () => deleteRole(job) },
+                      ]}
+                    />
                   </div>
                 </td>
               </tr>
@@ -171,6 +207,7 @@ export default function JobsPage() {
           </tbody>
         </table>
       )}
+      {confirmDialog}
     </Layout>
   );
 }

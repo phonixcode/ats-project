@@ -10,6 +10,13 @@ const UNREADABLE: ApplicationStatus[] = [
   ApplicationStatus.EXTRACT_FAILED,
 ];
 
+const RESCORABLE: ApplicationStatus[] = [
+  ApplicationStatus.EXTRACTED,
+  ApplicationStatus.SCORED,
+  ApplicationStatus.SCORE_FAILED,
+  ApplicationStatus.PENDING_REVIEW,
+];
+
 @Injectable()
 export class ProcessingService {
   constructor(
@@ -66,6 +73,22 @@ export class ProcessingService {
       data: { status: ApplicationStatus.SCORING, failureReason: null },
     });
     this.jobs.enqueueScore({ applicationId });
+  }
+
+  async rescoreJob(jobId: string) {
+    const applications = await this.prisma.application.findMany({
+      where: { jobId, failureReason: null, status: { in: RESCORABLE } },
+      select: { id: true },
+    });
+    const ids = applications.map((application) => application.id);
+    await this.prisma.application.updateMany({
+      where: { id: { in: ids } },
+      data: { status: ApplicationStatus.SCORING },
+    });
+    for (const applicationId of ids) {
+      this.jobs.enqueueScore({ applicationId });
+    }
+    return { queued: ids.length };
   }
 
   enqueueIngest(data: IngestBatchJobData) {

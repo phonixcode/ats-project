@@ -12,6 +12,7 @@ import {
   EXTRACTION_PROMPT,
   INTERVIEW_QUESTIONS_PROMPT,
   SCORING_PROMPT,
+  scoringInput,
 } from './prompts';
 import { clampFitResult, parseJsonObject } from './parse-json';
 
@@ -61,11 +62,12 @@ export class LocalLlmProviderService implements LLMProvider {
 
   async scoreFit(
     resumeData: ExtractedResumeData,
+    resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult> {
     const raw = await this.complete(
       SCORING_PROMPT,
-      JSON.stringify({ candidate: resumeData, job: posting }),
+      scoringInput(resumeData, resumeText, posting),
     );
     return clampFitResult(
       parseJsonObject<FitScoreResult>(raw, 'Local scoring'),

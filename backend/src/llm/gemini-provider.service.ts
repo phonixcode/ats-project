@@ -14,13 +14,14 @@ import {
   EXTRACTION_PROMPT,
   INTERVIEW_QUESTIONS_PROMPT,
   SCORING_PROMPT,
+  scoringInput,
 } from './prompts';
 import { clampFitResult, parseJsonObject } from './parse-json';
 
 @Injectable()
 export class GeminiProviderService implements LLMProvider {
   readonly name = 'gemini' as const;
-  readonly model = 'gemini-2.0-flash';
+  readonly model = 'gemini-3.8-flash';
   private client: GoogleGenerativeAI | null = null;
   private cachedKey: string | null = null;
 
@@ -42,7 +43,6 @@ export class GeminiProviderService implements LLMProvider {
     return this.client.getGenerativeModel({
       model: this.model,
       generationConfig: {
-        temperature: 0,
         responseMimeType: 'application/json',
       },
     });
@@ -65,11 +65,12 @@ export class GeminiProviderService implements LLMProvider {
 
   async scoreFit(
     resumeData: ExtractedResumeData,
+    resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult> {
     const raw = await this.complete(
       SCORING_PROMPT,
-      JSON.stringify({ candidate: resumeData, job: posting }),
+      scoringInput(resumeData, resumeText, posting),
     );
     return clampFitResult(
       parseJsonObject<FitScoreResult>(raw, 'Gemini scoring'),

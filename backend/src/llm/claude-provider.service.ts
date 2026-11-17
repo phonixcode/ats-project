@@ -14,13 +14,14 @@ import {
   EXTRACTION_PROMPT,
   INTERVIEW_QUESTIONS_PROMPT,
   SCORING_PROMPT,
+  scoringInput,
 } from './prompts';
 import { clampFitResult, parseJsonObject } from './parse-json';
 
 @Injectable()
 export class ClaudeProviderService implements LLMProvider {
   readonly name = 'claude' as const;
-  readonly model = 'claude-3-5-haiku-20241022';
+  readonly model = 'claude-haiku-5-5';
   private client: Anthropic | null = null;
   private cachedKey: string | null = null;
 
@@ -45,8 +46,7 @@ export class ClaudeProviderService implements LLMProvider {
   private async complete(system: string, user: string): Promise<string> {
     const response = await this.getClient().messages.create({
       model: this.model,
-      max_tokens: 4096,
-      temperature: 0,
+      max_tokens: 16000,
       system,
       messages: [{ role: 'user', content: user }],
     });
@@ -65,11 +65,12 @@ export class ClaudeProviderService implements LLMProvider {
 
   async scoreFit(
     resumeData: ExtractedResumeData,
+    resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult> {
     const raw = await this.complete(
       SCORING_PROMPT,
-      JSON.stringify({ candidate: resumeData, job: posting }),
+      scoringInput(resumeData, resumeText, posting),
     );
     return clampFitResult(
       parseJsonObject<FitScoreResult>(raw, 'Claude scoring'),

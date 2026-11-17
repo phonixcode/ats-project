@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import Layout from '../components/Layout';
+import { useConfirm } from '../hooks/useConfirm';
 import { userError } from '../lib/format';
 
 const emptyForm = {
@@ -23,6 +24,8 @@ export default function JobPostingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [posted, setPosted] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
@@ -78,6 +81,26 @@ export default function JobPostingPage() {
     }
   };
 
+  const deleteRole = async () => {
+    const ok = await confirm({
+      title: `Delete “${form.title || 'this role'}”?`,
+      message:
+        'This removes the role, every candidate and every resume file uploaded to it, to free up space. It can’t be undone — export your shortlist first if you need it.',
+      confirmLabel: 'Delete role',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.delete(`/jobs/${jobId}`);
+      navigate('/');
+    } catch (err) {
+      setError(userError(err, "We couldn't delete this role. Try again."));
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -89,12 +112,11 @@ export default function JobPostingPage() {
   if (posted) {
     return (
       <Layout>
-        <h2 className="page-title">Posted</h2>
-        <p>The role is up. Next: drop in a zip of resumes so MG-ATS can do the first read, then you decide who moves.</p>
+        <h1 className="page-title">Role posted</h1>
+        <p className="muted" style={{ margin: '6px 0 20px' }}>Next, upload resumes. MG-ATS does the first read, then you decide who moves on.</p>
         <div className="row">
           <Link className="btn btn-primary" to={`/jobs/${posted.id}/upload`}>Upload resumes</Link>
           <Link className="btn" to={`/jobs/${posted.id}`}>Review</Link>
-          <Link className="btn" to="/">All roles</Link>
         </div>
       </Layout>
     );
@@ -102,11 +124,8 @@ export default function JobPostingPage() {
 
   return (
     <Layout>
-      <Link to="/" className="muted" style={{ textDecoration: 'none', fontSize: 14 }}>← All roles</Link>
-      <h2 className="page-title" style={{ marginTop: 12, marginBottom: 8 }}>
-        {isEdit ? 'Edit posting' : 'Post a job'}
-      </h2>
-      <p className="muted" style={{ marginTop: 0, marginBottom: 24 }}>
+      <h1 className="page-title">{isEdit ? 'Edit posting' : 'Post a job'}</h1>
+      <p className="muted" style={{ margin: '6px 0 24px', maxWidth: 640 }}>
         Write this the way you’d publish it. MG-ATS uses this posting to read each resume — the clearer you are about the role and who you need, the better the notes on each person.
       </p>
 
@@ -177,10 +196,23 @@ export default function JobPostingPage() {
           </label>
         </section>
 
-        <button className="btn btn-ink" type="submit" disabled={submitting} style={{ alignSelf: 'flex-start' }}>
+        <button className="btn btn-primary" type="submit" disabled={submitting} style={{ alignSelf: 'flex-start' }}>
           {submitting ? 'Saving…' : isEdit ? 'Save posting' : 'Post job'}
         </button>
       </form>
+
+      {isEdit && (
+        <section className="card" style={{ marginTop: 32 }}>
+          <h3 style={{ marginTop: 0 }}>Delete this role</h3>
+          <p className="muted">
+            Removes the role, its candidates, and their resume files to free up space. Your decisions go with it — export the shortlist first if you need it.
+          </p>
+          <button className="btn btn-danger" type="button" onClick={deleteRole} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete role'}
+          </button>
+        </section>
+      )}
+      {confirmDialog}
     </Layout>
   );
 }

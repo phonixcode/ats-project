@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { rename } from 'fs/promises';
+import { rename, rm } from 'fs/promises';
 import { extname } from 'path';
 import {
   ArchiveExtractionService,
@@ -83,7 +83,12 @@ export class BatchProcessor implements OnModuleInit {
   ): Promise<ExtractedFile[]> {
     try {
       if (extname(upload.originalName).toLowerCase() === '.zip') {
-        return await this.archiveExtraction.extractZip(upload.path, destDir);
+        const extracted = await this.archiveExtraction.extractZip(
+          upload.path,
+          destDir,
+        );
+        await rm(upload.path, { force: true });
+        return extracted;
       }
       const target = resumeFilePath(destDir, upload.originalName);
       await rename(upload.path, target);

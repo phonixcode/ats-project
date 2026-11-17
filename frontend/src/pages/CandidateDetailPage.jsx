@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import Layout from '../components/Layout';
+import Menu from '../components/Menu';
+import { useConfirm } from '../hooks/useConfirm';
 import {
   AUTHENTICITY_LABELS,
-  BUCKET_LABELS,
+  matchLabel,
+  displayName,
+  READER_LABELS,
   DECISION_LABELS,
   formatPostedDate,
   resumeFileName,
@@ -26,6 +30,9 @@ const REVIEW_MESSAGES = {
 
 export default function CandidateDetailPage() {
   const { applicationId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [confirm, confirmDialog] = useConfirm();
   const pollRef = useRef(null);
   const [app, setApp] = useState(null);
   const [error, setError] = useState(null);
@@ -155,6 +162,23 @@ export default function CandidateDetailPage() {
     }
   };
 
+  const deleteCandidate = async () => {
+    const ok = await confirm({
+      title: `Delete ${displayName(app.candidate?.name)}?`,
+      message:
+        'Their score, notes, decision and resume file are removed from MG-ATS. This can’t be undone.',
+      confirmLabel: 'Delete candidate',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/applications/${applicationId}`);
+      navigate(location.state?.from ?? `/jobs/${app.jobId}`);
+    } catch (err) {
+      setActionError(userError(err, "We couldn't delete this candidate. Try again."));
+    }
+  };
+
   if (!app || app.id !== applicationId) {
     if (error) {
       return (
@@ -187,41 +211,43 @@ export default function CandidateDetailPage() {
     !app.failureReason &&
     (app.status === 'PENDING_REVIEW' || app.status === 'SCORE_FAILED');
   const resumeName = resumeFileName(app.rawFilePath);
+  const backTo = location.state?.from ?? `/jobs/${app.jobId}`;
+  const reader = app.modelOpinions?.find((opinion) => !opinion.error)?.provider;
+  const readBy = reader ? READER_LABELS[reader] || reader : null;
 
   return (
     <Layout>
-      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <Link to={`/jobs/${app.jobId}`} className="muted" style={{ fontSize: 14, textDecoration: 'none' }}>
-          ← Back to {app.job?.title || 'Review'}
+      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 20 }}>
+        <Link to={backTo} className="btn-quiet" style={{ paddingLeft: 0 }}>
+          Back to {app.job?.title || 'review'}
         </Link>
         <div className="row">
-          {app.previousId && <Link className="btn" to={`/applications/${app.previousId}`}>Previous</Link>}
-          {app.nextId && <Link className="btn" to={`/applications/${app.nextId}`}>Next</Link>}
+          {app.previousId && <Link className="btn" to={`/applications/${app.previousId}`} state={location.state}>Previous</Link>}
+          {app.nextId && <Link className="btn" to={`/applications/${app.nextId}`} state={location.state}>Next</Link>}
+          <Menu
+            label="More actions for this candidate"
+            items={[{ key: 'delete', label: 'Delete candidate', danger: true, onSelect: deleteCandidate }]}
+          />
         </div>
       </div>
 
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 12 }}>
-        <div>
-          <h2 className="page-title" style={{ fontSize: 30 }}>{app.candidate?.name || 'Unnamed candidate'}</h2>
-          <p className="muted" style={{ marginTop: 6 }}>
-            {app.candidate?.email && (
-              <a href={`mailto:${app.candidate.email}`}>{app.candidate.email}</a>
-            )}
-            {app.candidate?.email && app.candidate?.phone ? ' · ' : ''}
-            {app.candidate?.phone && (
-              <a href={`tel:${app.candidate.phone}`}>{app.candidate.phone}</a>
-            )}
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
+        <div style={{ minWidth: 0 }}>
+          <h1 className="page-title" style={{ fontSize: 32 }}>{displayName(app.candidate?.name)}</h1>
+          <p className="page-header-meta">
+            {app.candidate?.email && <a href={`mailto:${app.candidate.email}`}>{app.candidate.email}</a>}
+            {app.candidate?.phone && <a href={`tel:${app.candidate.phone}`}>{app.candidate.phone}</a>}
           </p>
           {app.job && (
-            <p className="muted" style={{ fontSize: 13 }}>
-              {app.job.title} · Posted {formatPostedDate(app.job.postedAt)}
+            <p className="muted" style={{ fontSize: 14, margin: '6px 0 0' }}>
+              Applied for {app.job.title}, posted {formatPostedDate(app.job.postedAt)}
             </p>
           )}
         </div>
         {score && (
           <div className="score-stamp">
             <p className="score-stamp-num">{score.fitScore}</p>
-            <p className="score-stamp-label">{BUCKET_LABELS[score.bucket]}</p>
+            <p className="score-stamp-label">{matchLabel(score)}</p>
           </div>
         )}
       </div>
@@ -268,7 +294,7 @@ export default function CandidateDetailPage() {
 
       <div className="row" style={{ margin: '16px 0', flexWrap: 'wrap' }}>
         <button
-          className="btn btn-ink"
+          className="btn"
           onClick={scoreAgain}
           disabled={scoringInProgress || !app.parsedJson}
         >
@@ -283,6 +309,12 @@ export default function CandidateDetailPage() {
           </button>
         )}
         {resumeName && <span className="chip">{resumeName}</span>}
+        {readBy && <span className="muted" style={{ fontSize: 13 }}>Read by {readBy}</span>}
+        {reader === 'heuristic' && (
+          <Link className="muted" style={{ fontSize: 13 }} to="/settings">
+            Want a fuller read? Check Settings
+          </Link>
+        )}
       </div>
       {!app.parsedJson && (
         <p className="status-note">MG-ATS still needs to open the file before it can read it against the posting.</p>
@@ -383,7 +415,7 @@ export default function CandidateDetailPage() {
         <div>
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
             <h3 style={{ fontSize: 17, margin: 0 }}>Questions to ask</h3>
-            <button className="btn btn-ink" onClick={generateQuestions} disabled={generatingQuestions}>
+            <button className="btn" onClick={generateQuestions} disabled={generatingQuestions}>
               {generatingQuestions ? 'Writing questions…' : app.interviewQuestions?.length ? 'Write new questions' : 'Write questions to ask'}
             </button>
           </div>
@@ -404,6 +436,7 @@ export default function CandidateDetailPage() {
           )}
         </div>
       )}
+      {confirmDialog}
     </Layout>
   );
 }

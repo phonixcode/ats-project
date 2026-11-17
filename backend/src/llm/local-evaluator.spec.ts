@@ -60,6 +60,7 @@ describe('evaluateFitLocally', () => {
         employmentGaps: [],
         summary: 'Backend engineer with Node.js and Postgres in production.',
       },
+      '',
       {
         title: 'Backend Engineer',
         description: 'We need Node.js, Postgres, and AWS. 5+ years.',
@@ -80,6 +81,7 @@ describe('evaluateFitLocally', () => {
         employmentGaps: [],
         summary: 'Recent graduate.',
       },
+      '',
       {
         title: 'Backend Engineer',
         description: 'We need Node.js, Postgres, and AWS. 5+ years.',
@@ -111,6 +113,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Backend engineer. Named skills include Node.js, Postgres, and AWS.',
       },
+      '',
       backendPosting,
     );
     const labels = result.requirementChecks.map((check) =>
@@ -137,6 +140,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Backend engineer. Named skills include Node.js, Postgres, and AWS.',
       },
+      '',
       backendPosting,
     );
     expect(result.fitScore).toBeGreaterThanOrEqual(75);
@@ -166,6 +170,7 @@ describe('evaluateFitLocally', () => {
         employmentGaps: [],
         summary: 'Recent graduate. Named skills include Excel.',
       },
+      '',
       backendPosting,
     );
     expect(result.fitScore).toBeLessThan(55);
@@ -197,6 +202,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Account Executive. Named skills include Salesforce, HubSpot, and Cold calling. Recent title: Account Executive, Acme Ltd.',
       },
+      '',
       {
         title: 'Sales Manager',
         description:
@@ -232,6 +238,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Staff Nurse. Named skills include Patient care, BLS, and ICU. Recent title: Staff Nurse, Lagos General Hospital.',
       },
+      '',
       {
         title: 'Registered Nurse',
         description:
@@ -266,6 +273,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Accountant. Named skills include IFRS, Excel, ICAN, and Reconciliation. Recent title: Accountant, First Bank.',
       },
+      '',
       {
         title: 'Accountant',
         description:
@@ -295,6 +303,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Class Teacher. Named skills include Lesson planning, Curriculum, and Classroom management. Recent title: Class Teacher, St Marys.',
       },
+      '',
       {
         title: 'Primary School Teacher',
         description:
@@ -322,6 +331,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Account Executive. Named skills include Salesforce and HubSpot.',
       },
+      '',
       backendPosting,
     );
     expect(result.fitScore).toBeLessThan(55);
@@ -340,6 +350,7 @@ describe('evaluateFitLocally', () => {
         summary:
           'Ife has a readable resume. Recent title: Marine Surveyor, Acme Ltd, 2019 – Present.',
       },
+      '',
       {
         title: 'Marine Surveyor',
         description:
@@ -400,5 +411,69 @@ describe('generateQuestionsLocally', () => {
     );
     expect(questions).toHaveLength(4);
     expect(questions.every((q) => q.questionText && q.groundedIn)).toBe(true);
+  });
+});
+
+describe('evaluateFitLocally on non-tech roles', () => {
+  const complianceResume = `Amaka Obi
+amaka.obi@example.com
+Compliance Officer, First Harbour Bank, 2018 - Present
+- Ran transaction monitoring and suspicious activity reporting for retail banking
+- Wrote the firm's regulatory reporting pack for the central bank every quarter
+- Led annual enterprise risk assessment and policy reviews
+Compliance Analyst, Crest Microfinance, 2015 - 2018`;
+
+  const compliancePosting = {
+    title: 'Senior Compliance Officer',
+    description: 'Own AML monitoring, regulatory reporting and risk assessment.',
+    mustHaves: ['Regulatory reporting', 'Risk assessment', 'Transaction monitoring'],
+    niceToHaves: [] as string[],
+    skills: [] as string[],
+    minYears: 5,
+  };
+
+  it('finds requirements in the work history, not just the skills list', () => {
+    const resume = extractResumeLocally(complianceResume);
+    const withText = evaluateFitLocally(resume, complianceResume, compliancePosting);
+    const withoutText = evaluateFitLocally(resume, '', compliancePosting);
+
+    const missingMust = (result: typeof withText) =>
+      result.requirementChecks.filter(
+        (check) => check.kind === 'must_have' && check.status === 'missing',
+      );
+    expect(missingMust(withText)).toHaveLength(0);
+    expect(withText.fitScore).toBeGreaterThanOrEqual(70);
+    expect(missingMust(withoutText).length).toBeGreaterThan(0);
+  });
+});
+
+describe('evaluateFitLocally reads tech postings like a person would', () => {
+  const posting = {
+    title: 'Software Engineer',
+    description:
+      'Proficiency in programming languages such as Java, Python, C++, or JavaScript. Experience with modern frameworks (e.g., React, Angular, Node.js, Django). 2+ years of experience.',
+    mustHaves: [] as string[],
+    niceToHaves: [] as string[],
+    skills: [] as string[],
+    minYears: null as number | null,
+  };
+
+  it('knows Node.js, TypeScript and React mean JavaScript', () => {
+    const text =
+      'Software Engineer, 2021 - Present. Built APIs in Node.js and TypeScript, dashboards in React.';
+    const result = evaluateFitLocally(extractResumeLocally(text), text, posting);
+    const js = result.requirementChecks.find((c) => c.requirement === 'JavaScript');
+    expect(js?.status).toBe('met');
+  });
+
+  it('treats listed examples as nice-to-haves, not must-haves', () => {
+    const text =
+      'Software Developer, 2020 - Present. .NET, C#, Angular and TypeScript web apps.';
+    const result = evaluateFitLocally(extractResumeLocally(text), text, posting);
+    const missingMust = result.requirementChecks.filter(
+      (c) => c.kind === 'must_have' && c.status === 'missing',
+    );
+    expect(missingMust).toHaveLength(0);
+    expect(result.fitScore).toBeGreaterThanOrEqual(55);
   });
 });

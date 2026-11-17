@@ -34,11 +34,20 @@ export const DECISION_LABELS = {
   REJECT: 'Not this time',
 };
 
-export const BUCKET_LABELS = {
-  STRONG_FIT: 'Strong fit',
-  NEEDS_REVIEW: 'Worth a closer look',
-  HARD_FILTERED: 'Missing a hard requirement',
+export const READER_LABELS = {
+  openai: 'OpenAI',
+  claude: 'Claude',
+  gemini: 'Gemini',
+  local: 'Local model',
+  heuristic: 'Built-in reader (keyword match)',
 };
+
+export function matchLabel(score) {
+  if (!score) return null;
+  if (score.bucket === 'STRONG_FIT') return score.fitScore >= 85 ? 'Strong match' : 'Good match';
+  if (score.bucket === 'NEEDS_REVIEW') return 'Possible match';
+  return 'Unlikely match';
+}
 
 export const AUTHENTICITY_LABELS = {
   NATURAL: 'Sounds like a real person',
@@ -93,4 +102,28 @@ export function userError(err, fallback) {
   }
 
   return statusMessage(status) || fallback;
+}
+
+export function displayName(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return 'Unnamed candidate';
+  if (trimmed !== trimmed.toUpperCase()) return trimmed;
+  return trimmed.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, (match) => match.toUpperCase());
+}
+
+export function greeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+export function attentionLine(jobs) {
+  if (jobs.length === 0) return 'Post a role to get started. MG-ATS reads every resume against it so you can focus on the people.';
+  const waiting = jobs.filter((job) => job.unreviewedCount > 0);
+  const total = waiting.reduce((sum, job) => sum + job.unreviewedCount, 0);
+  if (total === 0) return 'You’re all caught up. Nobody is waiting for a decision right now.';
+  const people = `${total} ${total === 1 ? 'person is' : 'people are'} waiting for your decision`;
+  if (waiting.length === 1) return `${people} in ${waiting[0].title}.`;
+  return `${people} across ${waiting.length} roles.`;
 }

@@ -61,6 +61,7 @@ export interface LLMProvider {
   extractResumeData(resumeText: string): Promise<ExtractedResumeData>;
   scoreFit(
     resumeData: ExtractedResumeData,
+    resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult>;
   assessAuthenticity(resumeText: string): Promise<AuthenticitySignalResult>;

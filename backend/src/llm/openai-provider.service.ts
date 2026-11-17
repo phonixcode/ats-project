@@ -14,13 +14,15 @@ import {
   EXTRACTION_PROMPT,
   INTERVIEW_QUESTIONS_PROMPT,
   SCORING_PROMPT,
+  scoringInput,
 } from './prompts';
 import { clampFitResult, parseJsonObject } from './parse-json';
+import { FIT_SCORE_JSON_SCHEMA } from './fit-score.schema';
 
 @Injectable()
 export class OpenAiProviderService implements LLMProvider {
   readonly name = 'openai' as const;
-  readonly model = 'gpt-4o-mini';
+  readonly model = 'gpt-5.4-mini';
   private client: OpenAI | null = null;
   private cachedKey: string | null = null;
 
@@ -50,7 +52,7 @@ export class OpenAiProviderService implements LLMProvider {
         { role: 'user', content: resumeText },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0,
+      reasoning_effort: 'low',
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('OpenAI didn’t return a read');
@@ -59,6 +61,7 @@ export class OpenAiProviderService implements LLMProvider {
 
   async scoreFit(
     resumeData: ExtractedResumeData,
+    resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult> {
     const response = await this.getClient().chat.completions.create({
@@ -67,11 +70,18 @@ export class OpenAiProviderService implements LLMProvider {
         { role: 'system', content: SCORING_PROMPT },
         {
           role: 'user',
-          content: JSON.stringify({ candidate: resumeData, job: posting }),
+          content: scoringInput(resumeData, resumeText, posting),
         },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'fit_score',
+          strict: true,
+          schema: FIT_SCORE_JSON_SCHEMA,
+        },
+      },
+      reasoning_effort: 'low',
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('OpenAI didn’t return a read');
@@ -90,7 +100,7 @@ export class OpenAiProviderService implements LLMProvider {
         { role: 'user', content: resumeText },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0,
+      reasoning_effort: 'low',
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('OpenAI didn’t return a read');
@@ -120,7 +130,7 @@ export class OpenAiProviderService implements LLMProvider {
         },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
+      reasoning_effort: 'low',
     });
     const raw = response.choices[0]?.message?.content;
     if (!raw) throw new Error('OpenAI didn’t return a read');

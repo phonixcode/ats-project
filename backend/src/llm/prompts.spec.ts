@@ -33,3 +33,24 @@ describe('cloud reader prompts', () => {
     );
   });
 });
+
+describe('hiring company context', () => {
+  it('judges every role as hired into Morgen Green without making non-tech roles technical', () => {
+    expect(SCORING_PROMPT).toMatch(/hiring company is Morgen Green Limited/);
+    expect(SCORING_PROMPT).toMatch(/non-technical roles stay non-technical/i);
+    expect(SCORING_PROMPT).toMatch(/Nigeria Data Protection Act/);
+    expect(INTERVIEW_QUESTIONS_PROMPT).toMatch(/hiring company is Morgen Green Limited/);
+    expect(SCORING_PROMPT).not.toContain('${');
+  });
+
+  it('does not filter on certificates or location, and keeps client names out', () => {
+    expect(SCORING_PROMPT).toMatch(/does not hire on certificates/i);
+    expect(SCORING_PROMPT).toMatch(/no location bias/i);
+    expect(SCORING_PROMPT).toMatch(/must come from the posting/i);
+    expect(SCORING_PROMPT).toMatch(/never flag what the resume shows by implication/i);
+    expect(SCORING_PROMPT).toMatch(/score precisely/i);
+    for (const prompt of [SCORING_PROMPT, INTERVIEW_QUESTIONS_PROMPT]) {
+      expect(prompt).not.toMatch(/JAMB|NECO|JUPEB/);
+    }
+  });
+});

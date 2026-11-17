@@ -1,4 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { rm } from 'fs/promises';
+import { join } from 'path';
+import { uploadsRoot } from '../common/storage';
 import { ApplicationStatus, HumanDecision, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
@@ -179,6 +182,36 @@ export class JobsService {
       );
     }
     return job;
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+    const applications = await this.prisma.application.findMany({
+      where: { jobId: id },
+      select: { candidateId: true, rawFilePath: true, batchId: true },
+    });
+    const candidateIds = [...new Set(applications.map((a) => a.candidateId))];
+
+    await this.prisma.$transaction([
+      this.prisma.job.delete({ where: { id } }),
+      this.prisma.candidate.deleteMany({
+        where: { id: { in: candidateIds }, applications: { none: {} } },
+      }),
+    ]);
+
+    const batchIds = new Set(
+      applications.flatMap((a) => (a.batchId ? [a.batchId] : [])),
+    );
+    const leftovers = applications.flatMap((a) =>
+      a.rawFilePath && !a.batchId ? [a.rawFilePath] : [],
+    );
+    await Promise.all([
+      ...[...batchIds].map((batchId) =>
+        rm(join(uploadsRoot(), batchId), { recursive: true, force: true }),
+      ),
+      ...leftovers.map((file) => rm(file, { force: true })),
+    ]);
+    return { removedApplications: applications.length };
   }
 
   async exportCandidates(id: string, decision: ExportDecision = 'SHORTLIST') {

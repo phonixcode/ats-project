@@ -29,9 +29,10 @@ export class HeuristicProviderService implements LLMProvider {
 
   async scoreFit(
     resumeData: ExtractedResumeData,
+    resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult> {
-    return evaluateFitLocally(resumeData, posting);
+    return evaluateFitLocally(resumeData, resumeText, posting);
   }
 
   async assessAuthenticity(

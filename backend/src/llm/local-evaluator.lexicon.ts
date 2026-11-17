@@ -402,6 +402,15 @@ export const ROLE_LABELS: Record<string, string> = {
   construction: 'construction / drafting work',
 };
 
+export const IMPLIED_BY: Record<string, string[]> = {
+  javascript: ['node.js', 'nodejs', 'typescript', 'react', 'angular', 'vue', 'next.js', 'nextjs', 'express', 'jquery'],
+  python: ['django', 'flask', 'fastapi', 'pandas'],
+  java: ['spring', 'spring boot', 'kotlin'],
+  'c#': ['.net', 'asp.net', 'dotnet'],
+  php: ['laravel', 'symfony', 'wordpress'],
+  ruby: ['rails', 'ruby on rails'],
+};
+
 export const ROLE_ALIASES: Record<string, string[]> = {
   backend: ['backend', 'back end', 'server side', 'api'],
   frontend: ['frontend', 'front end', 'ui engineer'],

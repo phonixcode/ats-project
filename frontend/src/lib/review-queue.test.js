@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReviewPage, compareByScore, summarizeQueue } from './review-queue.js';
+import { buildReviewPage, compareByScore, readerNote, summarizeQueue } from './review-queue.js';
 
 function app(overrides) {
   return {
@@ -17,19 +17,22 @@ describe('summarizeQueue', () => {
   it('counts each pile in one pass', () => {
     const counts = summarizeQueue([
       app({ id: 'a', reviews: [] }),
+      app({ id: 'f', reviews: [], score: { fitScore: 60, bucket: 'NEEDS_REVIEW' } }),
       app({ id: 'b', reviews: [{ humanDecision: 'SHORTLIST' }] }),
       app({ id: 'c', reviews: [{ humanDecision: 'REJECT' }] }),
       app({ id: 'd', score: null }),
       app({ id: 'e', failureReason: 'unreadable', score: null }),
     ]);
     assert.deepEqual(counts, {
-      toReview: 1,
+      toReview: 2,
       shortlisted: 1,
       maybe: 0,
       passed: 1,
       unread: 1,
+      strongFits: 1,
+      closerLook: 1,
       scoring: 1,
-      total: 5,
+      total: 6,
     });
   });
 });
@@ -90,5 +93,40 @@ describe('buildReviewPage', () => {
     );
     assert.equal(page.total, 1);
     assert.equal(page.items[0].id, 'keep');
+  });
+});
+
+describe('readerNote', () => {
+  it('gives the first sentence of the verdict and the first thing to check', () => {
+    const note = readerNote(
+      app({
+        score: {
+          fitScore: 82,
+          bucket: 'STRONG_FIT',
+          fitRationaleJson: {
+            summary: 'Strong match for Compliance Officer. Confirm notice period.',
+            gaps: ['Based in Kano; the role is listed in Lagos — confirm location or relocation.'],
+          },
+        },
+      }),
+    );
+    assert.equal(note.verdict, 'Strong match for Compliance Officer.');
+    assert.match(note.toCheck, /Kano/);
+  });
+
+  it('returns null before the read is done', () => {
+    assert.equal(readerNote(app({ score: null })), null);
+  });
+});
+
+describe('good and possible match views', () => {
+  it('only lists undecided candidates in each bucket', () => {
+    const apps = [
+      app({ id: 's', score: { fitScore: 85, bucket: 'STRONG_FIT' } }),
+      app({ id: 'd', score: { fitScore: 90, bucket: 'STRONG_FIT' }, reviews: [{ humanDecision: 'SHORTLIST' }] }),
+      app({ id: 'n', score: { fitScore: 60, bucket: 'NEEDS_REVIEW' } }),
+    ];
+    assert.deepEqual(buildReviewPage(apps, { view: 'good_matches' }).items.map((a) => a.id), ['s']);
+    assert.deepEqual(buildReviewPage(apps, { view: 'possible_matches' }).items.map((a) => a.id), ['n']);
   });
 });

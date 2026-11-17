@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { rm, rmdir } from 'fs/promises';
+import { dirname } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus, Bucket, HumanDecision } from '@prisma/client';
 import { CreateReviewDto } from './dto/create-review.dto';
 
 @Injectable()
@@ -85,6 +87,62 @@ export class ApplicationsService {
     });
   }
 
+  async reviewMany(applicationIds: string[], humanDecision: HumanDecision) {
+    const { count } = await this.prisma.review.createMany({
+      data: applicationIds.map((applicationId) => ({
+        applicationId,
+        humanDecision,
+      })),
+    });
+    return { reviewed: count };
+  }
+
+  async removeMany(applicationIds: string[]) {
+    const applications = await this.prisma.application.findMany({
+      where: { id: { in: applicationIds } },
+      select: { candidateId: true, rawFilePath: true },
+    });
+    if (applications.length === 0) {
+      throw new NotFoundException("We couldn't find those candidates.");
+    }
+    const candidateIds = [...new Set(applications.map((a) => a.candidateId))];
+
+    await this.prisma.$transaction([
+      this.prisma.application.deleteMany({
+        where: { id: { in: applicationIds } },
+      }),
+      this.prisma.candidate.deleteMany({
+        where: { id: { in: candidateIds }, applications: { none: {} } },
+      }),
+    ]);
+
+    await Promise.all(
+      applications.flatMap((a) =>
+        a.rawFilePath ? [removeResumeFile(a.rawFilePath)] : [],
+      ),
+    );
+    return { removed: applications.length };
+  }
+
+  async shortlistStrongFits(jobId: string) {
+    const strongFits = await this.prisma.application.findMany({
+      where: {
+        jobId,
+        failureReason: null,
+        score: { bucket: Bucket.STRONG_FIT },
+        reviews: { none: {} },
+      },
+      select: { id: true },
+    });
+    const { count } = await this.prisma.review.createMany({
+      data: strongFits.map((application) => ({
+        applicationId: application.id,
+        humanDecision: HumanDecision.SHORTLIST,
+      })),
+    });
+    return { shortlisted: count };
+  }
+
   async createReview(applicationId: string, dto: CreateReviewDto) {
     await this.prisma.application.findUniqueOrThrow({
       where: { id: applicationId },
@@ -138,12 +196,19 @@ export class ApplicationsService {
   findByJob(jobId: string) {
     return this.prisma.application.findMany({
       where: { jobId },
+      omit: { rawResumeText: true, parsedJson: true },
       include: {
         score: true,
         candidate: true,
+        modelOpinions: { select: { provider: true } },
         reviews: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
+}
+
+async function removeResumeFile(filePath: string) {
+  await rm(filePath, { force: true });
+  await rmdir(dirname(filePath)).catch(() => undefined);
 }

@@ -10,9 +10,12 @@ import type {
 
 type Handler<T> = (data: T) => Promise<void>;
 
+const READER_CONCURRENCY = 4;
+
 @Injectable()
 export class DesktopQueueService {
-  private readonly runner = new InProcessQueue(scoringConcurrency());
+  private readonly fileRunner = new InProcessQueue(scoringConcurrency());
+  private readonly readerRunner = new InProcessQueue(READER_CONCURRENCY);
   private ingestHandler: Handler<IngestBatchJobData> | null = null;
   private parseHandler: Handler<ParseResumeJobData> | null = null;
   private extractHandler: Handler<ExtractJobData> | null = null;
@@ -35,19 +38,19 @@ export class DesktopQueueService {
   }
 
   enqueueIngest(data: IngestBatchJobData) {
-    this.runner.add(() => this.require(this.ingestHandler, 'ingest')(data));
+    this.fileRunner.add(() => this.require(this.ingestHandler, 'ingest')(data));
   }
 
   enqueueParse(data: ParseResumeJobData) {
-    this.runner.add(() => this.require(this.parseHandler, 'parse')(data));
+    this.fileRunner.add(() => this.require(this.parseHandler, 'parse')(data));
   }
 
   enqueueExtract(data: ExtractJobData) {
-    this.runner.add(() => this.require(this.extractHandler, 'extract')(data));
+    this.readerRunner.add(() => this.require(this.extractHandler, 'extract')(data));
   }
 
   enqueueScore(data: ScoringJobData) {
-    this.runner.add(() => this.require(this.scoreHandler, 'score')(data));
+    this.readerRunner.add(() => this.require(this.scoreHandler, 'score')(data));
   }
 
   private require<T>(handler: Handler<T> | null, name: string): Handler<T> {

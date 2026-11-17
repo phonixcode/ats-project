@@ -8,6 +8,7 @@ import type {
 } from './llm-provider.interface';
 import {
   BUZZWORDS,
+  IMPLIED_BY,
   NAME_SKIP,
   ROLE_ALIASES,
   ROLE_LABELS,
@@ -149,6 +150,7 @@ function requirementsFromPosting(posting: JobPosting): {
   must: string[];
   nice: string[];
   minYears: number | null;
+  inferred: boolean;
 } {
   const explicitMust = (posting.mustHaves ?? [])
     .map(cleanRequirement)
@@ -176,6 +178,7 @@ function requirementsFromPosting(posting: JobPosting): {
         must,
       ).slice(0, 6),
       minYears,
+      inferred: false,
     };
   }
 
@@ -184,24 +187,24 @@ function requirementsFromPosting(posting: JobPosting): {
     !titleRole && detected.length === 0 ? titleSignals(posting.title) : [];
   const must = unique([
     ...(titleRole ? [titleRole] : []),
-    ...detected.slice(0, 3),
-    ...explicitSkills.slice(0, 2),
     ...fallbackTitle,
-  ]).slice(0, 6);
+  ]).slice(0, 3);
 
   return {
     must,
     nice: without(
-      unique([...detected.slice(3), ...explicitNice, ...explicitSkills]),
+      unique([...detected, ...explicitSkills, ...explicitNice]),
       must,
-    ).slice(0, 6),
+    ).slice(0, 8),
     minYears,
+    inferred: true,
   };
 }
 
-function haystack(resume: ExtractedResumeData): string {
+function haystack(resume: ExtractedResumeData, resumeText: string): string {
   return normalize(
     [
+      resumeText,
       resume.summary,
       ...(resume.skills ?? []),
       ...(resume.education ?? []).map(
@@ -247,6 +250,8 @@ function matchRequirement(
   if (direct === 'met') return 'met';
   const aliases = ROLE_ALIASES[normalize(requirement)] ?? [];
   if (aliases.some((alias) => containsPhrase(text, alias))) return 'met';
+  const impliedBy = IMPLIED_BY[normalize(requirement)] ?? [];
+  if (impliedBy.some((skill) => containsPhrase(text, skill))) return 'met';
   const related = ROLE_SKILLS[normalize(requirement)];
   if (!related) return direct;
   const hits = relatedSkillHits(requirement, skills, text);
@@ -322,11 +327,12 @@ export function extractResumeLocally(resumeText: string): ExtractedResumeData {
 
 export function evaluateFitLocally(
   resume: ExtractedResumeData,
+  resumeText: string,
   posting: JobPosting,
 ): FitScoreResult {
-  const text = haystack(resume);
+  const text = haystack(resume, resumeText);
   const skills = resume.skills ?? [];
-  const { must, nice, minYears } = requirementsFromPosting(posting);
+  const { must, nice, minYears, inferred } = requirementsFromPosting(posting);
   const checks: RequirementCheck[] = [
     ...must.map((requirement) => ({
       requirement: displayLabel(requirement),
@@ -391,11 +397,18 @@ export function evaluateFitLocally(
             100,
         );
 
+  const weights = inferred
+    ? { must: 0.4, years: 0.2, nice: 0.4 }
+    : { must: 0.62, years: 0.23, nice: 0.15 };
   const fitScore = Math.min(
     100,
     Math.max(
       8,
-      Math.round(mustScore * 0.62 + yearsScore * 0.23 + niceScore * 0.15),
+      Math.round(
+        mustScore * weights.must +
+          yearsScore * weights.years +
+          niceScore * weights.nice,
+      ),
     ),
   );
 
@@ -430,7 +443,7 @@ export function evaluateFitLocally(
     ),
     ...missingNice.map(
       (check) =>
-        `Little sign of ${check.requirement}, which the posting mentioned as a plus.`,
+        `Little sign of ${check.requirement}, which the posting mentions.`,
     ),
     ...partials.map(
       (check) =>
@@ -452,7 +465,9 @@ export function evaluateFitLocally(
   let summary: string;
   if (missingMust.length === 0 && fitScore >= 75) {
     summary = `On paper this is a strong match for ${title}.${metLabels ? ` The resume covers ${metLabels}.` : ''} Open the CV and decide if the story holds — this is a first read, not a hire.`;
-  } else if (fitScore >= 55 || missingMust.length <= 1) {
+  } else if (missingMust.length > 0 && fitScore >= 45) {
+    summary = `Might be missing ${missLabels} for ${title}.${metLabels ? ` The resume does show ${metLabels}.` : ''} Open the resume and confirm before you decide — a keyword read can miss things.`;
+  } else if (fitScore >= 55) {
     summary = `Worth a closer look for ${title}.${metLabels ? ` Overlap on ${metLabels}.` : ''}${missLabels ? ` Confirm ${missLabels} before you shortlist.` : ' A few posting asks are thin — confirm those in conversation.'}`;
   } else {
     summary = `A stretch for ${title} on keywords.${missLabels ? ` The posting wants ${missLabels}.` : ''} That can still be the right person if the story isn’t in the buzzwords — open the resume and decide yourself.`;
@@ -569,7 +584,7 @@ function stripLead(value: string): string {
     .replace(/^The posting asks for\s+/i, '')
     .replace(/; it doesn’t show up clearly on the resume\.?$/i, '')
     .replace(/^Little sign of\s+/i, '')
-    .replace(/, which the posting mentioned as a plus\.?$/i, '')
+    .replace(/, which the posting mentions\.?$/i, '')
     .replace(/^Only a partial match on\s+/i, '')
     .replace(/\s+— worth confirming before you decide\.?$/i, '')
     .replace(/^Experience looks in range:\s+/i, '')
