@@ -215,19 +215,45 @@ export class ApplicationsService {
     };
   }
 
-  findByJob(jobId: string) {
-    return this.prisma.application.findMany({
+  async findByJob(jobId: string) {
+    const applications = await this.prisma.application.findMany({
       where: { jobId },
-      omit: { rawResumeText: true, parsedJson: true },
-      include: {
-        score: true,
-        candidate: true,
+      select: {
+        id: true,
+        status: true,
+        failureReason: true,
+        candidate: { select: { name: true, email: true, phone: true } },
+        score: {
+          select: { fitScore: true, bucket: true, fitRationaleJson: true },
+        },
         modelOpinions: { select: { provider: true } },
-        reviews: { orderBy: { createdAt: 'desc' }, take: 1 },
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { humanDecision: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+    return applications.map((application) => ({
+      ...application,
+      score: application.score && {
+        ...application.score,
+        fitRationaleJson: listNote(application.score.fitRationaleJson),
+      },
+    }));
   }
+}
+
+function listNote(rationale: unknown) {
+  const { summary, gaps } = (rationale ?? {}) as {
+    summary?: unknown;
+    gaps?: unknown;
+  };
+  return {
+    summary: typeof summary === 'string' ? summary : '',
+    gaps: Array.isArray(gaps) ? gaps.slice(0, 1) : [],
+  };
 }
 
 async function removeResumeFile(filePath: string) {

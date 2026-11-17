@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { Injectable } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import type {
@@ -18,6 +17,11 @@ import {
 } from './prompts';
 import { clampFitResult, parseJsonObject } from './parse-json';
 
+const loadAnthropic = () => import('@anthropic-ai/sdk');
+type Anthropic = InstanceType<
+  Awaited<ReturnType<typeof loadAnthropic>>['default']
+>;
+
 @Injectable()
 export class ClaudeProviderService implements LLMProvider {
   readonly name = 'claude' as const;
@@ -31,20 +35,23 @@ export class ClaudeProviderService implements LLMProvider {
     return Boolean(this.settings.cloudKey('claude'));
   }
 
-  private getClient(): Anthropic {
+  private async getClient(): Promise<Anthropic> {
     const apiKey = this.settings.cloudKey('claude');
     if (!apiKey) {
       throw new Error('Claude isn’t set up');
     }
     if (!this.client || this.cachedKey !== apiKey) {
-      this.client = new Anthropic({ apiKey });
+      const { default: AnthropicClient } = await loadAnthropic();
+      this.client = new AnthropicClient({ apiKey });
       this.cachedKey = apiKey;
     }
     return this.client;
   }
 
   private async complete(system: string, user: string): Promise<string> {
-    const response = await this.getClient().messages.create({
+    const response = await (
+      await this.getClient()
+    ).messages.create({
       model: this.model,
       max_tokens: 16000,
       system,

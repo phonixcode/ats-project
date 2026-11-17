@@ -11,6 +11,7 @@ import { ExtractionProcessor } from './extraction-processor';
 import { ScoresModule } from '../scores/scores.module';
 import { ScoringProcessor } from './scoring-processor';
 import { DesktopQueueService } from './desktop-queue.service';
+import { DiagnosticsModule } from '../diagnostics/diagnostics.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { DesktopQueueService } from './desktop-queue.service';
     ApplicationsModule,
     LlmModule,
     ScoresModule,
+    DiagnosticsModule,
   ],
   providers: [
     DesktopQueueService,

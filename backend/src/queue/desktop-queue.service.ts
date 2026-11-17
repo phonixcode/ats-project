@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { scoringConcurrency } from '../common/paths';
 import { InProcessQueue } from './in-process-queue';
+import { StageMetricsService } from '../diagnostics/stage-metrics.service';
 import type {
   IngestBatchJobData,
   ExtractJobData,
@@ -21,6 +22,8 @@ export class DesktopQueueService {
   private extractHandler: Handler<ExtractJobData> | null = null;
   private scoreHandler: Handler<ScoringJobData> | null = null;
 
+  constructor(private readonly stageMetrics: StageMetricsService) {}
+
   registerIngest(handler: Handler<IngestBatchJobData>) {
     this.ingestHandler = handler;
   }
@@ -38,19 +41,46 @@ export class DesktopQueueService {
   }
 
   enqueueIngest(data: IngestBatchJobData) {
-    this.fileRunner.add(() => this.require(this.ingestHandler, 'ingest')(data));
+    this.track(this.fileRunner, 'ingest', () =>
+      this.require(this.ingestHandler, 'ingest')(data),
+    );
   }
 
   enqueueParse(data: ParseResumeJobData) {
-    this.fileRunner.add(() => this.require(this.parseHandler, 'parse')(data));
+    this.track(this.fileRunner, 'parse', () =>
+      this.require(this.parseHandler, 'parse')(data),
+    );
   }
 
   enqueueExtract(data: ExtractJobData) {
-    this.readerRunner.add(() => this.require(this.extractHandler, 'extract')(data));
+    this.track(this.readerRunner, 'extract', () =>
+      this.require(this.extractHandler, 'extract')(data),
+    );
   }
 
   enqueueScore(data: ScoringJobData) {
-    this.readerRunner.add(() => this.require(this.scoreHandler, 'score')(data));
+    this.track(this.readerRunner, 'score', () =>
+      this.require(this.scoreHandler, 'score')(data),
+    );
+  }
+
+  private track(
+    runner: InProcessQueue,
+    stage: string,
+    task: () => Promise<void>,
+  ) {
+    this.stageMetrics.queued(stage);
+    runner.add(async () => {
+      this.stageMetrics.started(stage);
+      const start = performance.now();
+      let ok = false;
+      try {
+        await task();
+        ok = true;
+      } finally {
+        this.stageMetrics.finished(stage, performance.now() - start, ok);
+      }
+    });
   }
 
   private require<T>(handler: Handler<T> | null, name: string): Handler<T> {

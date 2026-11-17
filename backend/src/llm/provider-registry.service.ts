@@ -7,6 +7,7 @@ import { OpenAiProviderService } from './openai-provider.service';
 import { SettingsService } from '../settings/settings.service';
 import type { LLMProvider, ProviderName } from './llm-provider.interface';
 import { withRetry } from './with-retry';
+import { StageMetricsService } from '../diagnostics/stage-metrics.service';
 
 export interface ReaderFailure {
   provider: ProviderName;
@@ -27,6 +28,7 @@ export class ProviderRegistryService {
     local: LocalLlmProviderService,
     heuristic: HeuristicProviderService,
     private readonly settings: SettingsService,
+    private readonly stageMetrics: StageMetricsService,
   ) {
     this.providers = [openai, gemini, claude, local, heuristic];
   }
@@ -54,11 +56,18 @@ export class ProviderRegistryService {
     let lastError: unknown;
     for (const provider of chain) {
       try {
-        const result = await withRetry(() => fn(provider), {
-          retries: provider.name === 'heuristic' ? 0 : 1,
-          timeoutMs: provider.name === 'heuristic' ? 5_000 : 30_000,
-        });
-        if (provider.name !== 'heuristic' && this.lastFailure?.provider === provider.name) {
+        const result = await this.stageMetrics.time(
+          `reader:${provider.name}`,
+          () =>
+            withRetry(() => fn(provider), {
+              retries: provider.name === 'heuristic' ? 0 : 1,
+              timeoutMs: provider.name === 'heuristic' ? 5_000 : 30_000,
+            }),
+        );
+        if (
+          provider.name !== 'heuristic' &&
+          this.lastFailure?.provider === provider.name
+        ) {
           this.lastFailure = null;
         }
         return result;
@@ -100,10 +109,18 @@ export class ProviderRegistryService {
 function readerErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   const status = (error as { status?: number })?.status;
-  if (/credit balance|insufficient_quota|exceeded your current quota|billing/i.test(raw)) {
+  if (
+    /credit balance|insufficient_quota|exceeded your current quota|billing/i.test(
+      raw,
+    )
+  ) {
     return 'The account has run out of credit. Top it up with the provider, or pick another reader in Settings.';
   }
-  if (status === 401 || status === 403 || /api key|x-api-key|permission denied/i.test(raw)) {
+  if (
+    status === 401 ||
+    status === 403 ||
+    /api key|x-api-key|permission denied/i.test(raw)
+  ) {
     return 'The API key was rejected. Paste a fresh key in Settings.';
   }
   if (status === 429) {
@@ -112,5 +129,5 @@ function readerErrorMessage(error: unknown): string {
   if (/model/i.test(raw) && (status === 404 || status === 400)) {
     return 'The provider no longer offers the model MG-ATS asked for.';
   }
-  return raw.replace(/(sk|AIza)[A-Za-z0-9_*\-]{6,}/g, '••••').slice(0, 200);
+  return raw.replace(/(sk|AIza)[A-Za-z0-9_*-]{6,}/g, '••••').slice(0, 200);
 }

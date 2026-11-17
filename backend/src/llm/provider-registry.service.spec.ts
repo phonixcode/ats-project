@@ -1,3 +1,4 @@
+import { StageMetricsService } from '../diagnostics/stage-metrics.service';
 import { ProviderRegistryService } from './provider-registry.service';
 import type { LLMProvider } from './llm-provider.interface';
 
@@ -34,6 +35,7 @@ describe('ProviderRegistryService', () => {
       stub('local', false) as never,
       stub('heuristic', true) as never,
       settings('claude'),
+      new StageMetricsService(),
     );
     expect(registry.fallbackChain().map((provider) => provider.name)).toEqual([
       'claude',
@@ -49,6 +51,7 @@ describe('ProviderRegistryService', () => {
       stub('local', false) as never,
       stub('heuristic', true) as never,
       settings('builtin'),
+      new StageMetricsService(),
     );
     expect(registry.fallbackChain().map((provider) => provider.name)).toEqual([
       'heuristic',
@@ -63,11 +66,14 @@ describe('ProviderRegistryService', () => {
       stub('local', false) as never,
       stub('heuristic', true) as never,
       settings('claude'),
+      new StageMetricsService(),
     );
     let creditLeft = false;
     const result = await registry.runWithFallback(async (provider) => {
       if (provider.name === 'claude' && !creditLeft) {
-        throw new Error('400 Your credit balance is too low to access the Anthropic API.');
+        throw new Error(
+          '400 Your credit balance is too low to access the Anthropic API.',
+        );
       }
       return provider.name;
     });

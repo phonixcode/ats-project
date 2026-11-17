@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { Injectable } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import type {
@@ -19,6 +18,9 @@ import {
 import { clampFitResult, parseJsonObject } from './parse-json';
 import { FIT_SCORE_JSON_SCHEMA } from './fit-score.schema';
 
+const loadOpenAI = () => import('openai');
+type OpenAI = InstanceType<Awaited<ReturnType<typeof loadOpenAI>>['default']>;
+
 @Injectable()
 export class OpenAiProviderService implements LLMProvider {
   readonly name = 'openai' as const;
@@ -32,20 +34,23 @@ export class OpenAiProviderService implements LLMProvider {
     return Boolean(this.settings.cloudKey('openai'));
   }
 
-  private getClient(): OpenAI {
+  private async getClient(): Promise<OpenAI> {
     const apiKey = this.settings.cloudKey('openai');
     if (!apiKey) {
       throw new Error('OpenAI isn’t set up');
     }
     if (!this.client || this.cachedKey !== apiKey) {
-      this.client = new OpenAI({ apiKey });
+      const { default: OpenAIClient } = await loadOpenAI();
+      this.client = new OpenAIClient({ apiKey });
       this.cachedKey = apiKey;
     }
     return this.client;
   }
 
   async extractResumeData(resumeText: string): Promise<ExtractedResumeData> {
-    const response = await this.getClient().chat.completions.create({
+    const response = await (
+      await this.getClient()
+    ).chat.completions.create({
       model: this.model,
       messages: [
         { role: 'system', content: EXTRACTION_PROMPT },
@@ -64,7 +69,9 @@ export class OpenAiProviderService implements LLMProvider {
     resumeText: string,
     posting: JobPosting,
   ): Promise<FitScoreResult> {
-    const response = await this.getClient().chat.completions.create({
+    const response = await (
+      await this.getClient()
+    ).chat.completions.create({
       model: this.model,
       messages: [
         { role: 'system', content: SCORING_PROMPT },
@@ -93,7 +100,9 @@ export class OpenAiProviderService implements LLMProvider {
   async assessAuthenticity(
     resumeText: string,
   ): Promise<AuthenticitySignalResult> {
-    const response = await this.getClient().chat.completions.create({
+    const response = await (
+      await this.getClient()
+    ).chat.completions.create({
       model: this.model,
       messages: [
         { role: 'system', content: AUTHENTICITY_PROMPT },
@@ -116,7 +125,9 @@ export class OpenAiProviderService implements LLMProvider {
     authenticitySignal: 'NATURAL' | 'TEMPLATED' | 'UNCERTAIN',
   ): Promise<InterviewQuestionResult[]> {
     const includeAuthCheck = authenticitySignal !== 'NATURAL';
-    const response = await this.getClient().chat.completions.create({
+    const response = await (
+      await this.getClient()
+    ).chat.completions.create({
       model: this.model,
       messages: [
         { role: 'system', content: INTERVIEW_QUESTIONS_PROMPT },

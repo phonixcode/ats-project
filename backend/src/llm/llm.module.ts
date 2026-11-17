@@ -7,9 +7,10 @@ import { HeuristicProviderService } from './heuristic-provider.service';
 import { ProviderRegistryService } from './provider-registry.service';
 import { LlmController } from './llm.controller';
 import { SettingsModule } from '../settings/settings.module';
+import { DiagnosticsModule } from '../diagnostics/diagnostics.module';
 
 @Module({
-  imports: [SettingsModule],
+  imports: [SettingsModule, DiagnosticsModule],
   controllers: [LlmController],
   providers: [
     OpenAiProviderService,

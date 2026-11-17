@@ -12,6 +12,7 @@ import { LlmModule } from './llm/llm.module';
 import { QueueModule } from './queue/queue.module';
 import { ProcessingModule } from './processing/processing.module';
 import { SettingsModule } from './settings/settings.module';
+import { DiagnosticsModule } from './diagnostics/diagnostics.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SettingsModule } from './settings/settings.module';
     QueueModule,
     ProcessingModule,
     SettingsModule,
+    DiagnosticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

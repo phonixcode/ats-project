@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as unzipper from 'unzipper';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { basename, extname } from 'path';
@@ -25,7 +24,8 @@ export class ArchiveExtractionService {
     let fileCount = 0;
     const zipName = basename(zipPath);
 
-    const directory = await unzipper.Open.file(zipPath);
+    const { Open } = await import('unzipper');
+    const directory = await Open.file(zipPath);
     this.logger.log(
       `${zipName}: archive contains ${directory.files.length} entries`,
     );
