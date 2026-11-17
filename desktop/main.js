@@ -2,7 +2,9 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron')
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { setupAutoUpdates } = require('./updater');
+const diagnostics = require('./diagnostics');
 
 let mainWindow = null;
 let checkForUpdatesNow = null;
@@ -76,6 +78,13 @@ function nodeCommand() {
   return process.execPath;
 }
 
+function apiHeapFlags() {
+  const gb = os.totalmem() / 1024 ** 3;
+  if (gb <= 6) return ['--max-old-space-size=256'];
+  if (gb <= 12) return ['--max-old-space-size=512'];
+  return [];
+}
+
 function startApi() {
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
@@ -100,8 +109,11 @@ function startApi() {
   }
 
   const logPath = logFile();
+  diagnostics.rotateIfLarge(logPath);
   const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-  logStream.write(`\n=== MG-ATS ${app.getVersion()} started ${new Date().toISOString()} ===\n`);
+  logStream.write(
+    `\n=== MG-ATS ${app.getVersion()} started ${new Date().toISOString()} | RAM ${Math.round(os.totalmem() / 1024 ** 3)}GB | API flags ${apiHeapFlags().join(' ') || 'none'} ===\n`,
+  );
   const readyFile = path.join(dir, 'api.ready');
   try {
     fs.unlinkSync(readyFile);
@@ -128,7 +140,7 @@ function startApi() {
       finish(null, apiBase);
     };
 
-    apiProcess = spawn(nodeCommand(), [backendMain], {
+    apiProcess = spawn(nodeCommand(), [...apiHeapFlags(), backendMain], {
       cwd: backendCwd(backendMain),
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -148,7 +160,10 @@ function startApi() {
       finish(new Error(`MG-ATS could not start the API. ${error.message}`));
     });
     apiProcess.on('exit', (code) => {
-      if (ready) return;
+      if (ready) {
+        diagnostics.recordEvent('api-exited', { code });
+        return;
+      }
       finish(new Error(crashDetail(output, code, logPath)));
     });
     timers.poll = setInterval(() => {
@@ -193,6 +208,15 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  mainWindow.on('unresponsive', () => diagnostics.recordEvent('window-unresponsive'));
+  mainWindow.on('responsive', () => diagnostics.recordEvent('window-responsive'));
+  mainWindow.webContents.on('render-process-gone', (_event, details) =>
+    diagnostics.recordEvent('window-crashed', { reason: details.reason }),
+  );
+  mainWindow.webContents.once('did-finish-load', () => {
+    diagnostics.mark('windowLoaded');
+    diagnostics.startRecorder({ logsDir: path.dirname(logFile()), apiBase: () => apiBase });
+  });
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith(apiBase)) event.preventDefault();
   });
@@ -232,6 +256,16 @@ function buildMenu() {
           label: 'Export logs…',
           click: exportLogs,
         },
+        {
+          label: 'Export diagnostics…',
+          click: () =>
+            diagnostics.exportDiagnostics({
+              window: mainWindow,
+              logsDir: path.dirname(logFile()),
+              dataDir: dataDir(),
+              apiBase: () => apiBase,
+            }),
+        },
         { type: 'separator' },
         {
           label: 'Check for updates…',
@@ -248,10 +282,18 @@ ipcMain.on('mg-ats:api-base', (event) => {
   event.returnValue = apiBase;
 });
 
+app.on('child-process-gone', (_event, details) => {
+  if (details.reason !== 'clean-exit') {
+    diagnostics.recordEvent('process-gone', { process: details.type, reason: details.reason });
+  }
+});
+
 app.whenReady().then(async () => {
+  diagnostics.mark('appReady');
   Menu.setApplicationMenu(buildMenu());
   try {
     await startApi();
+    diagnostics.mark('apiReady');
     createWindow();
     if (app.isPackaged) {
       checkForUpdatesNow = setupAutoUpdates({ getWindow: () => mainWindow, logPath: logFile() });

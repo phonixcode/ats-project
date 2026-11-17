@@ -171,6 +171,19 @@ frontend/   React review UI
 desktop/    Electron shell and Windows NSIS config
 ```
 
+## Measuring performance on a PC
+
+The Windows app records memory, CPU and timing every 10 seconds while it's open (`%APPDATA%\MG-ATS\logs\metrics.jsonl`, rotated at 5MB).
+
+To test a PC:
+
+1. Close other apps, open MG-ATS and wait for it to finish starting.
+2. Do what you normally would: upload a big batch (a zip of a few hundred resumes), let it read, then move around Review, open candidates, page through the list.
+3. Note anything that felt slow, and roughly when.
+4. Help → **Export diagnostics…** and send the `.json` file with your notes.
+
+The file has the PC's specs, start-up time, memory and CPU for the window and the engine over time, how long each step took (reading files, AI reads, scoring), any freezes or crashes, and the end of the log. Emails, phone numbers and API keys are hidden; resume file names may still appear in the log.
+
 ## If something goes wrong
 
 | What you see | What to do |

@@ -28,6 +28,7 @@
       "main.js",
       "preload.js",
       "updater.js",
+      "diagnostics.js",
       "build/icon.png"
     ],
     "extraResources": [
